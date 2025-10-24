@@ -46,6 +46,12 @@ It combines **data analysis, visualization, and narrative storytelling** to turn
   * `fret_depart`, `fret_arrivee`
   * `mouvements_passagers`, `mouvements_cargo`
   * `annee`, `mois`, `ville`, `latitude`, `longitude`
+---
+
+## Data Cleaning and Enrichment 
+
+To enhance the dataset and improve the geographic accuracy of the visualizations, I enriched the original DGAC data with airport coordinates and city names.
+This was done by merging it with the [OurAirports database](https://github.com/davidmegginson/ourairports-data/blob/main/airports.csv) and manually adding missing entries for certain airport codes that were not in the OurAirports database.
 
 ---
 
