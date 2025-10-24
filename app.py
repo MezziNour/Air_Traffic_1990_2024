@@ -1,4 +1,5 @@
 import streamlit as st
+from PIL import Image
 from utils.io_utils import load_cleaned_data
 from utils.prep import make_tables
 from sections import intro, overview, deep_dives, conclusions
@@ -13,9 +14,12 @@ def display_banner():
 
     # Convert it to a URL that Streamlit can read
     if image_path.exists():
-        st.image(str(image_path), use_container_width=True)
+        img = Image.open(image_path)
+        img = img.resize((1800, 450))
+        st.image(img)
+        
     else:
-        st.warning("Banner image not found. Check the path in display_banner().")
+        st.warning("Banner image not found.")
 
 
 st.set_page_config(
