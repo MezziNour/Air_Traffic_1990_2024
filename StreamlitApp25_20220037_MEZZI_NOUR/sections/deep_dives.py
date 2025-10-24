@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-from utils.viz import line_chart, bar_chart, map_chart
+from utils.viz import line_chart, bar_chart, map_chart, stacked_area_chart
 
 def app(tables, raw):
-    st.header("🔍 Deep Dives: Regional Insights & Event Impacts")
+    st.header("Deep Dives: Regional Insights & Event Impacts")
 
     st.markdown("""
     In this section, we explore **regional variations**, **airport rankings**, and how **major global events**
@@ -28,7 +28,7 @@ def app(tables, raw):
     # ---------------------------
     # Regional Comparisons
     # ---------------------------
-    st.subheader("🌍 Regional Traffic Comparison")
+    st.subheader("Regional Traffic Comparison")
     by_region_table = tables['by_region'].copy()
     by_region_filtered = by_region_table[
         by_region_table['zone'].isin(selected_zones)
@@ -49,7 +49,7 @@ def app(tables, raw):
     # Airport Distribution
     # ---------------------------
     st.markdown("---")
-    st.subheader("🏢 Airport Distribution by Selected Metric")
+    st.subheader("Airport Distribution by Selected Metric")
     by_airport_table = tables['by_airport'].copy()
     by_airport_filtered = by_airport_table[
         by_airport_table['zone'].isin(selected_zones)
@@ -62,7 +62,7 @@ def app(tables, raw):
     # Major Events Overlay
     # ---------------------------
     st.markdown("---")
-    st.subheader("⚠️ Impact of Major Events on Traffic")
+    st.subheader("Impact of Major Events on Traffic")
     st.markdown("""
     Key events affecting air traffic:
     - **2001: September 11 attacks**
@@ -86,7 +86,7 @@ def app(tables, raw):
     # Geo Insights
     # ---------------------------
     st.markdown("---")
-    st.subheader("🗺️ Regional Map Insights")
+    st.subheader("Regional Map Insights")
     map_table = tables['geo'].copy()
     map_table_filtered = map_table[
         map_table['zone'].isin(selected_zones)
@@ -104,3 +104,7 @@ def app(tables, raw):
 
     Use the sidebar filters to **customize your view** and uncover hidden trends in French air traffic.
     """)
+
+    st.markdown("---")
+    st.subheader("Zone Composition Over Time")
+    stacked_area_chart(timeseries_filtered)

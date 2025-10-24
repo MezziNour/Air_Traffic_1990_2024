@@ -2,16 +2,17 @@ import pandas as pd
 import streamlit as st
 import os
 
+# Folder where processed data is stored
 DATA_DIR = os.path.join("data", "processed")
 
 def get_cleaned_file_path(filename="trafic_aerien_1990_2024_cleaned.csv"):
-    """Return the path to the cleaned CSV file."""
+    """Build and return the full path to the cleaned CSV file."""
     return os.path.join(DATA_DIR, filename)
 
 @st.cache_data(show_spinner=False)
 def load_cleaned_data(filename="trafic_aerien_1990_2024_cleaned.csv"):
     """
-    Load the cleaned air traffic dataset from CSV.
+    Load the cleaned air traffic file from the processed folder.
     """
     path = get_cleaned_file_path(filename)
     if not os.path.exists(path):
@@ -20,7 +21,7 @@ def load_cleaned_data(filename="trafic_aerien_1990_2024_cleaned.csv"):
     
     df = pd.read_csv(path, sep=';', encoding='utf-8')
     
-    # Ensure date column exists for filtering/plotting
+    # Create a proper date column (useful for filters and charts)
     if 'annee' in df.columns and 'mois' in df.columns:
         df['date'] = pd.to_datetime(
             df['annee'].astype(str) + '-' + df['mois'].astype(str).str.zfill(2) + '-01',
@@ -31,7 +32,7 @@ def load_cleaned_data(filename="trafic_aerien_1990_2024_cleaned.csv"):
 
 def save_cleaned_data(df, filename="trafic_aerien_1990_2024_cleaned.csv"):
     """
-    Save a cleaned DataFrame to the processed folder.
+    Save the cleaned dataset inside the processed data folder.
     """
     path = get_cleaned_file_path(filename)
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -41,8 +42,7 @@ def save_cleaned_data(df, filename="trafic_aerien_1990_2024_cleaned.csv"):
 @st.cache_data(show_spinner=False)
 def load_and_cache_data():
     """
-    Load cleaned data only.
-    Returns the cleaned DataFrame.
+    Load the cleaned data (cached for better performance).
     """
     df_cleaned = load_cleaned_data()
     return df_cleaned

@@ -1,21 +1,24 @@
 import streamlit as st
 import pandas as pd
-from utils.viz import line_chart, bar_chart, map_chart
+from utils.viz import line_chart, bar_chart, map_chart, seasonality_heatmap
 
 def app(tables, raw):
-    st.header("📊 Overview of Air Traffic Trends in France")
+    # Page header
+    st.header("Overview of Air Traffic Trends in France")
 
+    # Short intro text for this section
     st.markdown("""
-    This section provides a **high-level view of air traffic evolution** across French airports from 1990 to 2024.
-    Explore the **total passenger and freight traffic**, identify **major hubs**, and observe **long-term trends**.
+    This part gives a **general view of how air traffic has evolved** in France between 1990 and 2024.  
+    You can explore **passenger and freight totals**, find out **which airports dominate**,  
+    and spot **long-term changes** in the data.
     """)
 
-    # Sidebar Filters
+    # --- Sidebar filters ---
     st.sidebar.subheader("Overview Filters")
     zones = raw['zone'].unique().tolist()
     selected_zones = st.sidebar.multiselect("Select Zone(s)", zones, default=zones)
 
-    # Year range from the 'annee' column
+    # Year range slider (based on available data)
     years = sorted(raw['annee'].dropna().astype(int).unique())
     start_year, end_year = st.sidebar.select_slider(
         "Select Year Range",
@@ -23,14 +26,14 @@ def app(tables, raw):
         value=(years[0], years[-1])
     )
 
-    # Filter raw data for KPIs
+    # --- Filter data based on user input ---
     df_filtered = raw[
         (raw['zone'].isin(selected_zones)) &
         (raw['annee'] >= start_year) &
         (raw['annee'] <= end_year)
     ]
 
-    # KPIs
+    # --- KPIs (key numbers at a glance) ---
     total_passengers = df_filtered[['passagers_depart', 'passagers_arrivee', 'passagers_transit']].sum().sum()
     total_freight = df_filtered[['fret_depart', 'fret_arrivee']].sum().sum()
     total_movements = df_filtered[['mouvements_passagers', 'mouvements_cargo']].sum().sum()
@@ -41,8 +44,9 @@ def app(tables, raw):
     c3.metric("Total Movements", f"{int(total_movements):,}")
 
     st.markdown("---")
-    st.subheader("📈 Passenger Traffic Over Time")
-    # Filter timeseries table
+
+    # --- Passenger traffic over time ---
+    st.subheader("Passenger Traffic Over Time")
     timeseries_table = tables['timeseries']
     timeseries_table_filtered = timeseries_table[
         (timeseries_table['zone'].isin(selected_zones)) &
@@ -52,7 +56,9 @@ def app(tables, raw):
     line_chart(timeseries_table_filtered)
 
     st.markdown("---")
-    st.subheader("🏢 Top Airports by Passenger Traffic")
+
+    # --- Top airports by traffic ---
+    st.subheader("Top Airports by Passenger Traffic")
     by_airport_table = tables['by_airport'].copy()
     by_airport_table_filtered = by_airport_table[
         by_airport_table['zone'].isin(selected_zones)
@@ -61,14 +67,23 @@ def app(tables, raw):
     bar_chart(top_airports)
 
     st.markdown("---")
-    st.subheader("🗺️ Geographic Distribution of Air Traffic")
+
+    # --- Map of air traffic ---
+    st.subheader("Geographic Distribution of Air Traffic")
     map_table = tables['geo'].copy()
     map_table_filtered = map_table[
         map_table['zone'].isin(selected_zones)
     ]
     map_chart(map_table_filtered)
 
+    # Small explanation below the main visuals
     st.markdown("""
-    This overview allows users to **identify trends, hotspots, and fluctuations** in air traffic.
-    You can further explore **regional comparisons and distribution details** in the next section.
+    This overview helps you spot **trends, key airports, and yearly changes** in traffic.  
+    You can dig deeper into **regional or airport-level details** in the next sections.
     """)
+
+    st.markdown("---")
+
+    # --- Seasonal patterns heatmap ---
+    st.subheader("Seasonal Patterns in Air Traffic")
+    seasonality_heatmap(df_filtered)

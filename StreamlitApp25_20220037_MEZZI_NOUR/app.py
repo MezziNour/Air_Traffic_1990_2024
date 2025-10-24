@@ -9,9 +9,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# -----------------------------
+
 # Load Data
-# -----------------------------
 @st.cache_data(show_spinner=False)
 def get_data():
     df_cleaned = load_cleaned_data()
@@ -20,18 +19,16 @@ def get_data():
 
 df_cleaned, tables = get_data()
 
-# -----------------------------
+
 # Sidebar Navigation
-# -----------------------------
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
     "Go to",
     ("Introduction", "Overview", "Deep Dives", "Conclusions")
 )
 
-# -----------------------------
+
 # Display Selected Section
-# -----------------------------
 if page == "Introduction":
     intro.app()
 elif page == "Overview":
@@ -42,11 +39,10 @@ elif page == "Conclusions":
     conclusions.app()
 
 
-# ----------------------------
+
 # Footer
-# ----------------------------
 st.markdown("""
 <footer style='text-align:center; color:gray; margin-top:50px;'>
-© 2025 — Data Storytelling Dashboard | Source: <a href="https://www.data.gouv.fr/datasets/trafic-aerien-commercial-mensuel-francais-par-paire-daeroports-par-sens-depuis-1990/" target="_blank">DGAC Open Data</a>
+© 2025 — Nour MEZZI - Data Storytelling Dashboard | Source: <a href="https://www.data.gouv.fr/datasets/trafic-aerien-commercial-mensuel-francais-par-paire-daeroports-par-sens-depuis-1990/" target="_blank">DGAC Open Data</a>
 </footer>
 """, unsafe_allow_html=True)

@@ -4,32 +4,34 @@ def make_tables(df):
     tables = {}
 
     df = df.copy()
+
+    # Create total columns for passengers, freight, and movements
     df['passengers_total'] = df[['passagers_depart', 'passagers_arrivee', 'passagers_transit']].sum(axis=1)
     df['freight_total'] = df[['fret_depart', 'fret_arrivee']].sum(axis=1)
     df['movements_total'] = df[['mouvements_passagers', 'mouvements_cargo']].sum(axis=1)
-    df['metric_total'] = df['passengers_total']
+    df['metric_total'] = df['passengers_total']  # main metric used for charts
 
-    # -----------------------------
-    # Handle date columns safely
-    # -----------------------------
+    # --- Handle date columns ---
+    # Convert 'annee_mois' to a proper datetime
     if 'annee_mois' in df.columns:
         df['annee_mois'] = pd.to_datetime(df['annee_mois'].astype(str), format='%Y%m', errors='coerce')
 
+    # Extract year and month
     df['annee'] = df['annee_mois'].dt.year
     df['mois'] = df['annee_mois'].dt.month
 
-    # Drop rows with missing year or month
+    # Remove rows where year or month is missing
     df = df.dropna(subset=['annee', 'mois'])
 
-    # Create date column
+    # Build a full date (first day of each month)
     df['date'] = pd.to_datetime(
         df['annee'].astype(int).astype(str) + '-' +
         df['mois'].astype(int).astype(str).str.zfill(2) + '-01'
     )
 
-    # -----------------------------
-    # Timeseries Table
-    # -----------------------------
+    # --- Build summary tables for later use ---
+
+    # Monthly evolution by zone (for line charts)
     timeseries = df.groupby(['date', 'zone'], as_index=False).agg({
         'passengers_total': 'sum',
         'freight_total': 'sum',
@@ -38,9 +40,7 @@ def make_tables(df):
     })
     tables['timeseries'] = timeseries
 
-    # -----------------------------
-    # By Region Table
-    # -----------------------------
+    # Total traffic by region (for comparisons)
     by_region = df.groupby(['zone'], as_index=False).agg({
         'passengers_total': 'sum',
         'freight_total': 'sum',
@@ -49,9 +49,7 @@ def make_tables(df):
     })
     tables['by_region'] = by_region
 
-    # -----------------------------
-    # By Airport Table
-    # -----------------------------
+    # Total traffic by airport (for rankings)
     by_airport = df.groupby(['code_aeroport', 'nom_aeroport', 'zone'], as_index=False).agg({
         'passengers_total': 'sum',
         'freight_total': 'sum',
@@ -60,9 +58,7 @@ def make_tables(df):
     })
     tables['by_airport'] = by_airport
 
-    # -----------------------------
-    # Geo Table
-    # -----------------------------
+    # Geo data (for map visualization)
     geo = df.groupby(['nom_aeroport', 'zone', 'latitude', 'longitude'], as_index=False).agg({
         'metric_total': 'sum'
     })

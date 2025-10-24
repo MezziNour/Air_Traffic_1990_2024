@@ -1,43 +1,46 @@
 import streamlit as st
 
 def app():
-    st.title("✈️ Evolution of Air Traffic in France (1990–2024)")
+    # App title and main introduction
+    st.title("Evolution of Air Traffic in France (1990–2024)")
+    
+    # Intro text – sets the context and explains what the dashboard is about
     st.markdown("""
     ### Introduction
 
-    Over the past three decades, **air transportation has become a key pillar of mobility and economic activity** in France.  
-    This dashboard explores **the evolution of passenger and freight traffic across French airports from 1990 to 2024**, 
-    based on open data published by the **Direction Générale de l’Aviation Civile (DGAC)**.
+    Over the last three decades, **air transport has become a major part of mobility and economic activity** in France.  
+    This dashboard looks at **how passenger and freight traffic have changed across French airports from 1990 to 2024**,  
+    using open data from the **Direction Générale de l’Aviation Civile (DGAC)**.
 
-    The aim is to **analyze how traffic has evolved** through major events — such as economic crises, 
-    technological progress, and the COVID-19 pandemic — and to highlight **regional differences and long-term trends**.
+    The goal is to **understand how air traffic evolved** through key world events — like financial crises, 
+    technological progress, and the COVID-19 pandemic — and to show **regional differences and long-term trends**.
 
     ---
 
-    ### The Hook : Crises Seen from Above
+    ### The Hook: Crises Seen from Above
 
     **1990–2024: 30 years of air traffic, and just as many shocks.**  
     From **9/11** and the **2008 financial crisis**, to **COVID-19** and the **war in Ukraine**,  
-    this project investigates how these global disruptions are reflected in **France’s air traffic flows**.  
+    this project explores how these global events appear in **France’s air traffic data**.  
     When the world stops moving, **the skies tell the story**.
 
     ---
 
     ### Objectives
 
-    - Examine the **evolution of total passenger and freight traffic** between 1990 and 2024.  
-    - Identify the **most active airports and regions** in France.  
-    - Explore **the geographical distribution** of air traffic.  
-    - Discuss **the impact of disruptions** (e.g., 9/11, 2008 crisis, COVID-19, Ukraine war).  
+    - Follow the **changes in passenger and freight traffic** between 1990 and 2024.  
+    - Find out which **airports and regions are the most active**.  
+    - Explore **how traffic is spread across the country**.  
+    - Understand the **impact of major crises** (9/11, 2008, COVID-19, Ukraine war).  
 
     ---
 
-    ### Dataset Description
+    ### Dataset Overview
 
-    - **Source:** [data.gouv.fr — DGAC Open Data](https://www.data.gouv.fr/)  
-    - **Period covered:** 1990–2024  
-    - **Granularity:** Monthly data aggregated by airport and zone  
-    - **Key variables:**
+    - **Source:** [DGAC Open Data](https://www.data.gouv.fr/datasets/trafic-aerien-commercial-mensuel-francais-par-paire-daeroports-par-sens-depuis-1990/)  
+    - **Period:** 1990–2024  
+    - **Detail level:** Monthly data by airport and region  
+    - **Main columns:**
         - `code_aeroport` — Airport code  
         - `nom_aeroport` — Airport name  
         - `zone` — Region (Metropolitan or Overseas)  
@@ -50,14 +53,13 @@ def app():
 
     ### Why This Topic Matters
 
-    Understanding air traffic patterns is essential for:
-    - **Policy-makers**: planning sustainable mobility and airport infrastructure.  
-    - **Economists**: measuring tourism and trade performance.  
-    - **Citizens**: observing how mobility evolves through crises.  
+    Understanding air traffic trends helps:
+    - **Policy-makers** plan sustainable airports and transport systems.  
+    - **Economists** track tourism, trade, and recovery after crises.  
+    - **Everyone** see how mobility reacts when the world changes.  
 
-    This app offers a **data storytelling approach**, transforming raw data into an interactive narrative 
-    that connects numbers with real-world events and implications.
+    This app takes a **data storytelling** approach — turning raw numbers into an interactive story  
+    that links data with real-world events and meaning.
 
     ---
     """)
-
