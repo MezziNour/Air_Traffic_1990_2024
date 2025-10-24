@@ -209,11 +209,12 @@ def seasonality_heatmap(df):
 
 
 # Stacked Area Chart – Zone Composition
-def stacked_area_chart(df):
+def stacked_area_chart(df, value_col='metric_total'):
     """
-    Show how each zone contributes to total traffic over time.
+    Show how each zone contributes to a selected metric over time.
+    value_col: column to display (e.g., passengers_total, freight_total, movements_total)
     """
-    if df.empty or not {'date', 'zone', 'metric_total'}.issubset(df.columns):
+    if df.empty or not {'date', 'zone'}.issubset(df.columns) or value_col not in df.columns:
         st.warning("No sufficient data to generate stacked area chart.")
         return
 
@@ -223,16 +224,16 @@ def stacked_area_chart(df):
     fig = px.area(
         df,
         x='date',
-        y='metric_total',
+        y=value_col,
         color='zone',
-        title="Traffic Composition by Zone Over Time",
-        labels={'metric_total': 'Total Traffic', 'zone': 'Region'},
+        title=f"Traffic Composition by Zone Over Time ({value_col})",
+        labels={value_col: 'Metric Value', 'zone': 'Region'},
     )
 
     fig.update_layout(
         hovermode="x unified",
         legend_title_text='Zone',
-        yaxis_title="Total Passengers",
+        yaxis_title=value_col.replace("_", " ").title(),
         xaxis_title="Date",
         template="plotly_white"
     )

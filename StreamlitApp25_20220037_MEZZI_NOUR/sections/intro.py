@@ -55,8 +55,5 @@ def app():
     - **Policy makers** plan for more sustainable airports and transport systems  
     - **Economists** measure tourism, trade, and recovery after crises  
     - **Citizens** understand how global events affect daily mobility  
-
-    This app takes a **data storytelling** approach — turning numbers into an interactive story  
-    that connects data to real events and their impact over time.
     ---
     """)

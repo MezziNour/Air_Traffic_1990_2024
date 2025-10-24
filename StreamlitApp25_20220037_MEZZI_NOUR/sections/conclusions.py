@@ -4,47 +4,39 @@ def app():
     st.header("Conclusions & Key Takeaways")
 
     st.markdown("""
-    After exploring **30+ years of air traffic data across French airports**, several key insights emerge:
+    After looking at **air traffic in France from 1990 to 2024**, we can see how travel, freight, and flight activity have changed over time.
 
     ---
 
-    ### Long-Term Trends
-    - Air traffic in France has generally **increased steadily** from 1990 until the COVID-19 pandemic in 2020.  
-    - Passenger traffic dominates the overall movement numbers, with freight representing a smaller but **essential component of airport activity**.  
-    - Certain airports (Paris Charles de Gaulle, Orly, Lyon, Nice) consistently serve as **major hubs**.
+    ### What We Learned
+    - From **1990 to 2019**, air traffic in France kept **growing consistently**, with clear **summer peaks** every year.  
+      In **2020**, traffic fell sharply because of **COVID-19**, then started to recover slowly.
+    - **Metropolitan France (MT)** handles **most of the traffic**, while **Overseas territories (OM)** show **smaller but stable** numbers.  
+    - **Paris–Charles de Gaulle (CDG)** and **Paris–Orly (ORY)** remain the main hubs.  
+      Airports like **Nice, Lyon, Marseille, Toulouse, and Bordeaux** also play an important role regionally.
+    - **Freight traffic** is mostly at **CDG**, making it France’s main cargo hub.  
+      It was less affected by crises and recovered faster than passenger traffic.
+    - **Flight movements** clearly dropped during COVID-19 but show a strong rebound after 2021.
+    - Global events such as **9/11 (2001)**, the **2008 financial crisis**, and the **2020 pandemic** left visible marks in the data.
 
     ---
 
-    ### Impact of Major Crises
-    - **9/11 (2001)**: Temporary drop in international traffic.  
-    - **2008 Financial Crisis**: Slower growth in passenger movements.  
-    - **COVID-19 (2020)**: Massive drop across all airports; recovery varies by region.  
-    - **Ukraine War (2022)**: Slight reduction in international air traffic, mostly in freight and transit passengers.  
-    - The skies reflect the rhythm of global and regional disruptions — a **“crises seen from above”** perspective.
+    ### Why It Matters
+    - Big events can **disrupt the air network fast**, so **resilience and crisis planning** are essential.  
+    - Heavy traffic around **Paris airports** shows a need to **spread activity** more evenly across regions.  
+    - **Regional airports** help connect cities and support tourism, so keeping them active is important for local economies.  
+    - With most **freight centered in Ile-de-France**, improving **logistics links** to other regions could make air transport more balanced.  
+    - Environmental issues are now a key part of planning — reducing **CO₂ emissions and noise** should go hand in hand with growth.
 
     ---
 
-    ### Regional & Airport Insights
-    - **Metropolitan France** dominates total traffic; Overseas territories see smaller volumes but are crucial for connectivity.  
-    - Top airports account for a **large share of total traffic**, reinforcing the hub-and-spoke structure of air transport.  
-    - Regional differences suggest **targeted infrastructure or policy interventions** may be required to balance traffic growth and sustainability.
+    ### What Comes Next  
+    - **Predict the future**: we can try simple forecasting models to estimate how traffic might evolve after crises.  
+    - **Add new data**: we can include information on **emissions, fuel use, and train alternatives** for short routes.  
+    - **Improve the app**: we can offer options to **download filtered data**, **compare airports**, and show **data quality checks**.
 
     ---
 
-    ### Recommendations & Next Steps
-    - **Policy & Planning**: Use this data to plan airport capacity, regional connectivity, and crisis response strategies.  
-    - **Further Analysis**: Explore **seasonal trends, weather impacts, or airline-specific contributions**.  
-    - **Scenario Planning**: Incorporate **“what-if” scenarios** for future disruptions or policy changes.  
-    - **Sustainability Focus**: Integrate environmental metrics (CO₂, noise, fuel consumption) for holistic mobility planning.
-
-    ---
-
-    ### Dashboard Takeaways
-    - Interactive filters allow users to **explore traffic by zone, year, and metric**.  
-    - Visual storytelling highlights **trends, disruptions, and geographic patterns**.  
-    - Provides a **transparent and reproducible data narrative** linking numbers to real-world events.
-    
-    ---
-    
-    Thank you for exploring this dashboard. For further details, all datasets, methods, and code are **documented in the repository**.
+    Thank you for exploring this dashboard!  
+    All data sources and methods are explained in the **[project repository](https://github.com/MezziNour/Air_Traffic_1990_2024)**.
     """)

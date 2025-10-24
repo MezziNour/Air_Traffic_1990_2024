@@ -11,7 +11,7 @@ def make_tables(df):
     df['movements_total'] = df[['mouvements_passagers', 'mouvements_cargo']].sum(axis=1)
     df['metric_total'] = df['passengers_total']  # main metric used for charts
 
-    # --- Handle date columns ---
+    # Handle date columns 
     # Convert 'annee_mois' to a proper datetime
     if 'annee_mois' in df.columns:
         df['annee_mois'] = pd.to_datetime(df['annee_mois'].astype(str), format='%Y%m', errors='coerce')
@@ -29,7 +29,7 @@ def make_tables(df):
         df['mois'].astype(int).astype(str).str.zfill(2) + '-01'
     )
 
-    # --- Build summary tables for later use ---
+    # Build summary tables for later use in the app
 
     # Monthly evolution by zone (for line charts)
     timeseries = df.groupby(['date', 'zone'], as_index=False).agg({
