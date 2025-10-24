@@ -3,6 +3,21 @@ from utils.io_utils import load_cleaned_data
 from utils.prep import make_tables
 from sections import intro, overview, deep_dives, conclusions
 
+
+def display_banner():
+    import os
+    from pathlib import Path
+
+    # Build the correct absolute path to your image
+    image_path = Path(__file__).parent / "assets" / "plane.jpg"
+
+    # Convert it to a URL that Streamlit can read
+    if image_path.exists():
+        st.image(str(image_path), use_container_width=True)
+    else:
+        st.warning("Banner image not found. Check the path in display_banner().")
+
+
 st.set_page_config(
     page_title="Air Traffic Data Storytelling Dashboard",
     layout="wide",
@@ -30,12 +45,16 @@ page = st.sidebar.radio(
 
 # Display Selected Section
 if page == "Introduction":
+    display_banner()
     intro.app()
 elif page == "Overview":
+    display_banner()
     overview.app(tables, df_cleaned)
 elif page == "Deep Dives":
+    display_banner()
     deep_dives.app(tables, df_cleaned)
 elif page == "Conclusions":
+    display_banner()
     conclusions.app()
 
 
