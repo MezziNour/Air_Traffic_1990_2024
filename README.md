@@ -153,6 +153,13 @@ Through this project, I learned how to:
 
 ---
 
+## Project Links
+
+* [GitHub Repository](https://github.com/MezziNour/Air_Traffic_1990_2024)
+* [Deployed App](https://airtraffic.streamlit.app)
+
+---
+
 ## References
 
 * DGAC Open Data Portal — [data.gouv.fr](https://www.data.gouv.fr/datasets/trafic-aerien-commercial-mensuel-francais-par-paire-daeroports-par-sens-depuis-1990/)
