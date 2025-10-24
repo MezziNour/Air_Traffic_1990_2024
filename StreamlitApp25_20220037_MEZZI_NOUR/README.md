@@ -2,8 +2,11 @@
 
 
 **Author:** Mezzi Nour
+
 **Email:** [[nour.mezzi@efrei.net](mailto:your.email@efrei.fr)]
+
 **Instructor:** Mano Joseph Mathew
+
 **Hashtags:** #EFREIDataStories2025 #DataVisualization #Streamlit #OpenData
 
 ---
