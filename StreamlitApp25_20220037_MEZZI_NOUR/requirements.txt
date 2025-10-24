@@ -1,0 +1,11 @@
+streamlit
+pandas 
+numpy
+plotly
+pydeck
+geopandas
+shapely
+pyproj
+pyarrow
+requests
+tabulate

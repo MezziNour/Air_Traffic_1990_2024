@@ -1,0 +1,19 @@
+[theme]
+# Primary accent color (buttons, highlights)
+primaryColor = "#0077b6"          # Strong sky blue, visible to colorblind users
+
+# Background of main content
+backgroundColor = "#f0f4f8"       # Very light grayish-blue
+
+# Background of sidebar and cards
+secondaryBackgroundColor = "#ffffff"  # Clean white for contrast
+
+# Text color
+textColor = "#03045e"             # Dark navy, high contrast on light background
+
+# Font: "sans serif" is best for readability
+font = "sans serif"
+
+# Optional: for charts, use colorblind-friendly palette
+[theme.plotly]
+colorway = ["#0077b6", "#0096c7", "#00b4d8", "#48cae4", "#90e0ef", "#ade8f4"]
