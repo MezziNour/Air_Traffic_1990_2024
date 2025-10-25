@@ -183,11 +183,24 @@ def bar_top_n(
         st.info("No data to rank.")
         return
 
+    # Prepare aggregation
     d = df[[category_col, value_col]].copy()
     d = d.groupby(category_col, dropna=False)[value_col].sum().reset_index()
     d = d.sort_values(value_col, ascending=not sort_desc).head(n)
-    d[category_col] = d[category_col].astype(str)
 
+
+    d = d.reset_index(drop=True)
+    for col in d.columns:
+        if d[col].dtype == "object":
+            d[col] = d[col].astype(str)
+        elif "datetime" in str(d[col].dtype):
+            d[col] = d[col].astype(str)
+        elif np.issubdtype(d[col].dtype, np.integer):
+            d[col] = d[col].astype(float)  
+        elif np.issubdtype(d[col].dtype, np.floating):
+            d[col] = d[col].astype(float)
+
+    
     bars = alt.Chart(d).mark_bar().encode(
         x=alt.X(f"{value_col}:Q", title=value_col),
         y=alt.Y(f"{category_col}:N", sort="-x", title=""),
@@ -203,6 +216,7 @@ def bar_top_n(
         chart = bars
 
     st.altair_chart(chart, use_container_width=True)
+
 
 def boxplot_distribution(df: pd.DataFrame, category_col: str, value_col: str, title: str = ""):
     """Distribution of a metric across categories (e.g., freight by airport)."""
