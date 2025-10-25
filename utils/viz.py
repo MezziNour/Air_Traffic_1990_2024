@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 import pydeck as pdk
+import plotly.graph_objects as go
 
 try:
     import plotly.express as px
@@ -38,7 +39,7 @@ def _tooltip_fields(df: pd.DataFrame, cols: Sequence[str]) -> List[alt.Tooltip]:
 # LINE / AREA 
 
 def line_trend(df, date_col, value_cols, title="", subtitle="", y_title="", bands=None):
-    import plotly.graph_objects as go
+    
 
     fig = go.Figure()
 
@@ -179,33 +180,44 @@ def bar_top_n(
     sort_desc: bool = True,
     annotate: bool = True
 ):
-    if df.empty or not set([category_col, value_col]).issubset(df.columns):
+    if df.empty or not {category_col, value_col}.issubset(df.columns):
         st.info("No data to rank.")
         return
 
-    # Prepare aggregation
-    d = df[[category_col, value_col]].copy()
-    d = d.groupby(category_col, dropna=False)[value_col].sum().reset_index()
-    d = d.sort_values(value_col, ascending=not sort_desc).head(n)
+    tmp = df[[category_col, value_col]].copy()
+    tmp[category_col] = tmp[category_col].astype(str)
+    if np.issubdtype(tmp[value_col].dtype, np.integer):
+        tmp[value_col] = tmp[value_col].astype("float64")
 
-
-    d = d.reset_index(drop=True)
-    for col in d.columns:
-        if d[col].dtype == "object":
-            d[col] = d[col].astype(str)
-        elif "datetime" in str(d[col].dtype):
-            d[col] = d[col].astype(str)
-        elif np.issubdtype(d[col].dtype, np.integer):
-            d[col] = d[col].astype(float)  
-        elif np.issubdtype(d[col].dtype, np.floating):
-            d[col] = d[col].astype(float)
+    d = (
+        tmp.groupby(category_col, dropna=False)[value_col]
+           .sum()
+           .reset_index()
+           .sort_values(value_col, ascending=not sort_desc)
+           .head(n)
+           .reset_index(drop=True)
+           .replace({np.nan: None})
+    )
 
     
-    bars = alt.Chart(d).mark_bar().encode(
-        x=alt.X(f"{value_col}:Q", title=value_col),
-        y=alt.Y(f"{category_col}:N", sort="-x", title=""),
-        tooltip=[category_col, alt.Tooltip(f"{value_col}:Q", title=value_col)]
-    ).properties(title=title, height=max(240, 20 * len(d)))
+    records = [
+        {
+            category_col: str(row[category_col]) if row[category_col] is not None else "",
+            value_col: float(row[value_col]) if row[value_col] is not None else None,
+        }
+        for _, row in d.iterrows()
+    ]
+
+    bars = (
+        alt.Chart(alt.Data(values=records))  
+        .mark_bar()
+        .encode(
+            x=alt.X(f"{value_col}:Q", title=value_col),
+            y=alt.Y(f"{category_col}:N", sort="-x", title=""),
+            tooltip=[category_col, alt.Tooltip(f"{value_col}:Q", title=value_col, format=",.0f")],
+        )
+        .properties(title=title, height=max(240, 20 * len(records)))
+    )
 
     if annotate:
         text = bars.mark_text(align="left", dx=3).encode(
@@ -214,10 +226,9 @@ def bar_top_n(
         chart = bars + text
     else:
         chart = bars
-        
-    st.write("DEBUG dtypes:", d.dtypes)
 
     st.altair_chart(chart, use_container_width=True)
+
 
 
 def boxplot_distribution(df: pd.DataFrame, category_col: str, value_col: str, title: str = ""):
@@ -232,11 +243,6 @@ def boxplot_distribution(df: pd.DataFrame, category_col: str, value_col: str, ti
     ).properties(title=title, height=380)
     st.altair_chart(ch, use_container_width=True)
 
-import altair as alt
-import pandas as pd
-import numpy as np
-import streamlit as st
-from typing import List, Optional
 
 def scatter_with_size_color(
     df: pd.DataFrame,
@@ -417,9 +423,6 @@ def missingness_bar(df: pd.DataFrame, title: str = "Missing values by column"):
 # WHAT-IF / PROJECTION
 
 def overlay_projection(df, date_col, value_col, pct_change=10, title="Projection", subtitle=None):
-    import altair as alt
-    import pandas as pd
-
     if df.empty or date_col not in df.columns or value_col not in df.columns:
         return
 
