@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 import pydeck as pdk
+import plotly.express as px
 import plotly.graph_objects as go
 
 try:
@@ -180,50 +181,53 @@ def bar_top_n(
     sort_desc: bool = True,
     annotate: bool = True
 ):
+    """Horizontal top-N bar chart that is Arrow/Altair-agnostic (uses Plotly)."""
     if df.empty or not {category_col, value_col}.issubset(df.columns):
         st.info("No data to rank.")
         return
 
-    # 🔴 Force JSON-safe types BEFORE groupby
-    tmp = df[[category_col, value_col]].copy()
-    tmp[category_col] = tmp[category_col].astype(str)              # tuples/objects → str
-    if "datetime" in str(tmp[value_col].dtype):
-        tmp[value_col] = tmp[value_col].astype("float64")          # never send datetimes to Q axis
-    elif np.issubdtype(tmp[value_col].dtype, np.integer):
-        tmp[value_col] = tmp[value_col].astype("float64")
+    
+    d = df[[category_col, value_col]].copy()
+    d[category_col] = d[category_col].astype(str)              
+    # ensure purely numeric measure
+    if "datetime" in str(d[value_col].dtype):
+        d[value_col] = pd.to_numeric(d[value_col], errors="coerce")
+    elif not np.issubdtype(d[value_col].dtype, np.number):
+        d[value_col] = pd.to_numeric(d[value_col], errors="coerce")
 
     d = (
-        tmp.groupby(category_col, dropna=False)[value_col]
-           .sum()
-           .reset_index()
-           .sort_values(value_col, ascending=not sort_desc)
-           .head(n)
-           .reset_index(drop=True)
+        d.groupby(category_col, dropna=False, as_index=False)[value_col]
+         .sum()
+         .sort_values(value_col, ascending=not sort_desc)
+         .head(n)
+         .replace({np.nan: 0.0})
     )
 
-   
-    for c in d.columns:
-        if d[c].dtype == "object":
-            d[c] = d[c].astype(str)
-        elif np.issubdtype(d[c].dtype, np.floating):
-            d[c] = d[c].astype(float)
-    d = d.replace({np.nan: None})
+    # Plotly horizontal bars
+    fig = px.bar(
+        d,
+        x=value_col,
+        y=category_col,
+        orientation="h",
+        text=value_col if annotate else None,
+        title=title or None,
+    )
 
-    bars = alt.Chart(d).mark_bar().encode(
-        x=alt.X(f"{value_col}:Q", title=value_col),
-        y=alt.Y(f"{category_col}:N", sort="-x", title=""),
-        tooltip=[category_col, alt.Tooltip(f"{value_col}:Q", title=value_col, format=",.0f")],
-    ).properties(title=title, height=max(240, 20 * len(d)))
+    # Style
+    fig.update_traces(
+        texttemplate="%{text:,.0f}",
+        textposition="outside",
+        cliponaxis=False,
+    )
+    fig.update_layout(
+        height=max(260, 28 * len(d)),
+        xaxis_title=value_col,
+        yaxis_title="",
+        margin=dict(l=10, r=10, t=60, b=20),
+    )
 
-    if annotate:
-        text = bars.mark_text(align="left", dx=3).encode(
-            text=alt.Text(f"{value_col}:Q", format=",.0f")
-        )
-        chart = bars + text
-    else:
-        chart = bars
+    st.plotly_chart(fig, use_container_width=True)
 
-    st.altair_chart(chart, use_container_width=True)
 
 
 
