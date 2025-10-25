@@ -11,7 +11,7 @@ from utils.viz import (
     line_trend,
     stacked_area_share,
     overlay_projection,
-    boxplot_distribution,
+    boxplot_distribution_px,
 )
 
 COVID_BANDS = [("2020-03-01", "2021-06-01", "COVID-19")]
@@ -75,17 +75,19 @@ def render(start_date=None, end_date=None):
 
     
     # Seasonality
-    
+    df_month = apt.copy()
+    df_month["month"] = pd.to_datetime(df_month["date"], errors = "coerce").dt.month
     st.header("Seasonality of Air Traffic")
 
     if not apt.empty:
         idx = seasonality_index(apt, "passagers_total")
         if not idx.empty:
-            boxplot_distribution(
-                apt.assign(month=pd.to_datetime(apt["date"]).dt.month),
-                category_col="month",
-                value_col="passagers_total",
-                title="Distribution of passengers per month"
+            boxplot_distribution_px(
+                df_month,
+                x_col="month",
+                y_col="passagers_total",
+                title="Distribution of passengers per month",
+                show_points=True,
             )
             st.caption("Months above the average line show higher seasonal peaks (e.g. summer holidays).")
 

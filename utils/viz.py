@@ -228,12 +228,66 @@ def bar_top_n(
 
     st.plotly_chart(fig, use_container_width=True)
 
+# utils/viz.py
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+def boxplot_distribution_px(
+    df: pd.DataFrame,
+    x_col: str,          
+    y_col: str,          
+    title: str = "",
+    show_points: bool = True,
+):
+    """Distribution chart (box + optional points) using Plotly (JSON-safe on Streamlit Cloud)."""
+    if df.empty or not {x_col, y_col}.issubset(df.columns):
+        st.info("No data to plot.")
+        return
+
+    d = df[[x_col, y_col]].copy()
+
+    # X should be simple numeric or string
+    if "datetime" in str(d[x_col].dtype):
+        d[x_col] = pd.to_datetime(d[x_col], errors="coerce")
+        d[x_col] = d[x_col].dt.month
+
+    # Coerce x to numeric if possible, else string
+    if not np.issubdtype(d[x_col].dtype, np.number):
+        coerced = pd.to_numeric(d[x_col], errors="coerce")
+        if coerced.notna().any():
+            d[x_col] = coerced.astype(float)
+        else:
+            d[x_col] = d[x_col].astype(str)
+
+    # Y must be numeric
+    d[y_col] = pd.to_numeric(d[y_col], errors="coerce")
+
+    # Replace NaNs with None to be JSON-serializable
+    d = d.replace({np.nan: None}).reset_index(drop=True)
+
+    fig = px.box(
+        d,
+        x=x_col,
+        y=y_col,
+        points="all" if show_points else False,
+        title=title or None,
+    )
+    fig.update_traces(marker=dict(size=4, opacity=0.35))
+    fig.update_layout(
+        height=420,
+        xaxis_title=x_col.replace("_", " "),
+        yaxis_title=y_col.replace("_", " "),
+        margin=dict(l=10, r=10, t=50, b=10),
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def boxplot_distribution(
     df: pd.DataFrame,
-    x_col: str,          # e.g. "month"
-    y_col: str,          # e.g. "passagers_total"
+    x_col: str,          
+    y_col: str,          
     title: str = "",
     show_points: bool = True,
 ):
