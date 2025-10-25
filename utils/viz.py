@@ -1,241 +1,465 @@
-import streamlit as st
+from typing import List, Optional, Tuple, Dict, Sequence
+import numpy as np
 import pandas as pd
-import plotly.express as px
+import streamlit as st
+import altair as alt
 import pydeck as pdk
 
+try:
+    import plotly.express as px
+except Exception:  
+    px = None
 
-# Line Chart – Time Series View
-def line_chart(df, highlight_events=False):
-    """
-    Show how traffic evolves over time.
-    If highlight_events=True, adds red lines for key historical events.
-    """
-    if df.empty:
-        st.warning("No data to display for line chart.")
-        return
+# Make Altair render faster in Streamlit
+alt.data_transformers.disable_max_rows()
 
-    fig = px.line(
-        df,
-        x='date',
-        y='metric_total',
-        color='zone' if 'zone' in df.columns else None,
-        labels={'date': 'Date', 'metric_total': 'Metric Value', 'zone': 'Zone'},
-        title='Traffic Trend Over Time'
-    )
 
-    # Add key global events on the chart
-    if highlight_events:
-        events = {
-            '2001-09-01': '9/11 Attacks',
-            '2008-09-01': 'Financial Crisis',
-            '2020-03-01': 'COVID-19 Pandemic',
-            '2022-02-24': 'Ukraine War'
-        }
-        for date, label in events.items():
-            fig.add_vline(x=pd.to_datetime(date), line_dash="dash", line_color="red")
+# Styling & helpers
+
+PALETTE = [
+    "#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+    "#14b8a6", "#6b7280", "#f43f5e", "#84cc16", "#eab308"
+]
+
+def _fmt(n, decimals: int = 0) -> str:
+    try:
+        return f"{n:,.{decimals}f}".replace(",", " ")
+    except Exception:
+        return str(n)
+
+def _tooltip_fields(df: pd.DataFrame, cols: Sequence[str]) -> List[alt.Tooltip]:
+    tips = []
+    for c in cols:
+        if c in df.columns:
+            tips.append(alt.Tooltip(c, type="nominal" if df[c].dtype == "O" else "quantitative"))
+    return tips
+
+
+# LINE / AREA 
+
+def line_trend(df, date_col, value_cols, title="", subtitle="", y_title="", bands=None):
+    import plotly.graph_objects as go
+
+    fig = go.Figure()
+
+    # Plot each column
+    for c in value_cols:
+        if c in df.columns:
+            fig.add_trace(go.Scatter(
+                x=df[date_col],
+                y=df[c],
+                mode="lines",
+                name=c,
+                line=dict(width=2)
+            ))
+
+    # Add COVID band or other shaded periods
+    if bands:
+        for (start, end, label) in bands:
+            
+            start = pd.to_datetime(start)
+            end = pd.to_datetime(end)
+            fig.add_vrect(
+                x0=start,
+                x1=end,
+                fillcolor="red",
+                opacity=0.1,
+                layer="below",
+                line_width=0,
+            )
             fig.add_annotation(
-                x=pd.to_datetime(date),
-                y=df['metric_total'].max() * 0.95,
+                x=start + (end - start) / 2,
+                y=df[value_cols[0]].max() * 0.95,
                 text=label,
-                showarrow=True,
-                arrowhead=2,
-                arrowcolor='red'
+                showarrow=False,
+                font=dict(color="red", size=12)
             )
 
-    fig.update_layout(hovermode="x unified")
-    st.plotly_chart(fig, use_container_width=True)
-
-
-
-# Bar Chart – Ranking Comparison
-def bar_chart(df, top_n=10):
-    """
-    Show top airports or regions by selected metric.
-    """
-    if df.empty:
-        st.warning("No data to display for bar chart.")
-        return
-
-    # Compute total metric if missing
-    if 'metric_total' not in df.columns:
-        df['metric_total'] = df.select_dtypes(include='number').sum(axis=1)
-
-    top_df = df.sort_values('metric_total', ascending=False).head(top_n)
-
-    fig = px.bar(
-        top_df,
-        x='nom_aeroport' if 'nom_aeroport' in df.columns else 'zone',
-        y='metric_total',
-        color='zone' if 'zone' in df.columns else None,
-        labels={'metric_total': 'Metric Value', 'nom_aeroport': 'Airport', 'zone': 'Zone'},
-        text='metric_total',
-        title=f"Top {top_n} by Selected Metric"
-    )
-
-    fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, uniformtext_minsize=8, uniformtext_mode='hide')
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# Map Chart – Geographic View
-def map_chart(df):
-    """
-    Show the geographic spread of air traffic.
-    Needs columns: 'nom_aeroport', 'latitude', 'longitude', 'metric_total'.
-    """
-    # Remove airports with missing coordinates
-    df = df.dropna(subset=['latitude', 'longitude'])
-    
-    # Make sure coordinates are numbers
-    df['latitude'] = df['latitude'].astype(float)
-    df['longitude'] = df['longitude'].astype(float)
-    
-    if df.empty:
-        st.info("No data or coordinates to display on the map.")
-        return
-
-    # France center (used to center the map)
-    center_lat = 46.6
-    center_lon = 2.5
-
-    fig = px.scatter_mapbox(
-        df,
-        lat='latitude',
-        lon='longitude',
-        size='metric_total',
-        hover_name='nom_aeroport',
-        hover_data={'zone': True, 'metric_total': True, 'latitude': False, 'longitude': False},
-        color='metric_total',
-        color_continuous_scale='Viridis',
-        zoom=5,
-        height=600,
-    )
-
     fig.update_layout(
-        mapbox_style="carto-positron",
-        mapbox_center={"lat": center_lat, "lon": center_lon},
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# Summary Table – Top Results
-def summary_table(df, metric='metric_total', top_n=10):
-    """
-    Show a simple table of top airports or regions.
-    """
-    if df.empty:
-        st.warning("No data to display in summary table.")
-        return
-
-    if metric not in df.columns:
-        df[metric] = df.select_dtypes(include='number').sum(axis=1)
-
-    top_df = df.sort_values(metric, ascending=False).head(top_n)
-    st.dataframe(top_df[['nom_aeroport', 'zone', metric]] if 'nom_aeroport' in df.columns else top_df)
-
-
-
-# Small Multiples – Compare Groups
-def small_multiples(df, value_col='metric_total', category_col='zone'):
-    """
-    Create a faceted bar chart to compare different zones or airports over time.
-    """
-    if df.empty or value_col not in df.columns:
-        st.warning("No data to display for small multiples.")
-        return
-
-    fig = px.bar(
-        df,
-        x='annee_mois' if 'annee_mois' in df.columns else 'annee',
-        y=value_col,
-        color=category_col if category_col in df.columns else None,
-        facet_col=category_col if category_col in df.columns else None,
-        labels={value_col: 'Metric Value', 'annee_mois': 'Date'},
-        title="Small Multiples Comparison"
-    )
-
-    fig.update_layout(showlegend=True, height=400)
-    st.plotly_chart(fig, use_container_width=True)
-
-
-
-# Seasonal Heatmap – Monthly Patterns
-def seasonality_heatmap(df):
-    """
-    Show how passenger traffic changes by month and year (seasonal trends).
-    """
-    if df.empty:
-        st.warning("No data available to generate seasonality heatmap.")
-        return
-
-    # Create passengers_total if missing
-    if 'passengers_total' not in df.columns:
-        if all(col in df.columns for col in ['passagers_depart', 'passagers_arrivee', 'passagers_transit']):
-            df['passengers_total'] = df[['passagers_depart', 'passagers_arrivee', 'passagers_transit']].sum(axis=1)
-        else:
-            st.error("Required passenger columns are missing.")
-            return
-
-    # Make sure we have year and month columns
-    if 'annee' not in df.columns or 'mois' not in df.columns:
-        st.error("Columns 'annee' and 'mois' are required for the heatmap.")
-        return
-
-    # Group by year and month
-    pivot_df = (
-        df.groupby(['annee', 'mois'], as_index=False)['passengers_total']
-        .sum()
-        .pivot(index='annee', columns='mois', values='passengers_total')
-        .fillna(0)
-    )
-
-    # Month labels for the x-axis
-    month_labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    pivot_df.columns = month_labels[:len(pivot_df.columns)]
-
-    fig = px.imshow(
-        pivot_df,
-        labels=dict(x="Month", y="Year", color="Passengers"),
-        color_continuous_scale="YlOrBr",
-        title="Seasonal Heatmap of Passenger Traffic (1990–2024)"
-    )
-
-    fig.update_xaxes(side="top")
-    st.plotly_chart(fig, use_container_width=True)
-
-
-
-# Stacked Area Chart – Zone Composition
-def stacked_area_chart(df, value_col='metric_total'):
-    """
-    Show how each zone contributes to a selected metric over time.
-    value_col: column to display (e.g., passengers_total, freight_total, movements_total)
-    """
-    if df.empty or not {'date', 'zone'}.issubset(df.columns) or value_col not in df.columns:
-        st.warning("No sufficient data to generate stacked area chart.")
-        return
-
-    # Sort by date for a cleaner timeline
-    df = df.sort_values('date')
-
-    fig = px.area(
-        df,
-        x='date',
-        y=value_col,
-        color='zone',
-        title=f"Traffic Composition by Zone Over Time ({value_col})",
-        labels={value_col: 'Metric Value', 'zone': 'Region'},
-    )
-
-    fig.update_layout(
+        title=f"{title}<br><sup>{subtitle}</sup>",
+        yaxis_title=y_title,
+        template="simple_white",
         hovermode="x unified",
-        legend_title_text='Zone',
-        yaxis_title=value_col.replace("_", " ").title(),
-        xaxis_title="Date",
-        template="plotly_white"
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
 
+    st.plotly_chart(fig, use_container_width=True)
+
+
+
+def stacked_area_share(
+    df: pd.DataFrame,
+    date_col: str,
+    category_col: str,
+    value_col: str,
+    title: str = "",
+    normalize: bool = True,
+    top_n: int = 15,           
+    legend_columns: int = 4,
+    bottom_padding: int = 64,
+):
+    """Stacked area to show composition over time (market shares) with Top-N carriers and 'Others'."""
+    needed = {date_col, category_col, value_col}
+    if df.empty or not needed.issubset(df.columns):
+        st.info("Not enough data for stacked area.")
+        return
+
+    
+    d = df[[date_col, category_col, value_col]].copy()
+    d[date_col] = pd.to_datetime(d[date_col], errors="coerce")
+    d = d.dropna(subset=[date_col])
+
+    
+    totals = (
+        d.groupby(category_col, dropna=False)[value_col]
+         .sum()
+         .sort_values(ascending=False)
+    )
+    top_list = totals.head(top_n).index.tolist()
+
+    
+    d[category_col] = np.where(d[category_col].isin(top_list), d[category_col], "Others")
+
+    
+    d = (
+        d.groupby([date_col, category_col], as_index=False, dropna=False)[value_col]
+         .sum()
+    )
+
+    
+    y_enc = alt.Y(
+        f"{value_col}:Q",
+        stack="normalize" if normalize else "zero",
+        title="Share" if normalize else value_col.replace("_", " ").title(),
+        axis=alt.Axis(format="~%") if normalize else alt.Undefined,
+    )
+
+    # Chart
+    chart = (
+        alt.Chart(d)
+        .mark_area()
+        .encode(
+            x=alt.X(f"{date_col}:T", title="Date", axis=alt.Axis(titlePadding=12, labelPadding=6)),
+            y=y_enc,
+            color=alt.Color(
+                f"{category_col}:N",
+                legend=alt.Legend(
+                    title=None,
+                    orient="top",
+                    direction="horizontal",
+                    columns=legend_columns,
+                    labelLimit=1000,
+                    symbolLimit=0,
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip(f"{date_col}:T", title="Date"),
+                alt.Tooltip(f"{category_col}:N", title="Carrier"),
+                alt.Tooltip(f"{value_col}:Q", title="Passengers", format=",.0f"),
+            ],
+        )
+        .properties(title=title, height=420, width="container")
+        .configure(padding={"left": 5, "right": 5, "top": 5, "bottom": bottom_padding})
+        .configure_axis(labelFontSize=12, titleFontSize=12)
+        .configure_legend(labelFontSize=12)
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+
+
+# BAR / RANKINGS / DISTRIBUTIONS
+
+def bar_top_n(
+    df: pd.DataFrame,
+    category_col: str,
+    value_col: str,
+    n: int = 10,
+    title: str = "",
+    sort_desc: bool = True,
+    annotate: bool = True
+):
+    if df.empty or not set([category_col, value_col]).issubset(df.columns):
+        st.info("No data to rank.")
+        return
+
+    d = df[[category_col, value_col]].copy()
+    d = d.groupby(category_col, dropna=False)[value_col].sum().reset_index()
+    d = d.sort_values(value_col, ascending=not sort_desc).head(n)
+    d[category_col] = d[category_col].astype(str)
+
+    bars = alt.Chart(d).mark_bar().encode(
+        x=alt.X(f"{value_col}:Q", title=value_col),
+        y=alt.Y(f"{category_col}:N", sort="-x", title=""),
+        tooltip=[category_col, alt.Tooltip(f"{value_col}:Q", title=value_col)]
+    ).properties(title=title, height=max(240, 20 * len(d)))
+
+    if annotate:
+        text = bars.mark_text(align="left", dx=3).encode(
+            text=alt.Text(f"{value_col}:Q", format=",.0f")
+        )
+        chart = bars + text
+    else:
+        chart = bars
+
+    st.altair_chart(chart, use_container_width=True)
+
+def boxplot_distribution(df: pd.DataFrame, category_col: str, value_col: str, title: str = ""):
+    """Distribution of a metric across categories (e.g., freight by airport)."""
+    if df.empty or not set([category_col, value_col]).issubset(df.columns):
+        st.info("Not enough data for boxplot.")
+        return
+    ch = alt.Chart(df).mark_boxplot(size=14).encode(
+        x=alt.X(f"{category_col}:N", sort="-y", title=""),
+        y=alt.Y(f"{value_col}:Q", title=value_col),
+        color=alt.Color(f"{category_col}:N", legend=None)
+    ).properties(title=title, height=380)
+    st.altair_chart(ch, use_container_width=True)
+
+import altair as alt
+import pandas as pd
+import numpy as np
+import streamlit as st
+from typing import List, Optional
+
+def scatter_with_size_color(
+    df: pd.DataFrame,
+    x: str,
+    y: str,
+    size_col: Optional[str] = None,
+    color_col: Optional[str] = None,
+    title: str = "",
+    tooltip_cols: Optional[List[str]] = None,
+    legend_select: bool = True,
+    color_domain: Optional[List[str]] = None,   
+    color_range: Optional[List[str]] = None,    
+    top_n: int = 15                              
+):
+    """Scatter plot showing top N categories by size or y-value."""
+    if df.empty or x not in df.columns or y not in df.columns:
+        return
+
+    d = df.copy()
+
+    # Select top N airlines by total passengers
+    
+    if color_col:
+        metric = size_col or y
+        totals = (
+            d.groupby(color_col, dropna=False)[metric]
+             .sum()
+             .sort_values(ascending=False)
+        )
+        top_list = totals.head(top_n).index.tolist()
+        d = d[d[color_col].isin(top_list)]
+
+
+    # Tooltip and color setup
+    tooltip = tooltip_cols or [c for c in [color_col, x, y, size_col] if c]
+
+    if color_col:
+        color_enc = alt.Color(
+            f"{color_col}:N",
+            legend=alt.Legend(title=color_col),
+            scale=alt.Scale(
+                domain=color_domain,
+                range=color_range,
+                clamp=True
+            ) if (color_domain and color_range) else alt.Undefined,
+            sort=color_domain if color_domain else alt.Undefined,
+        )
+    else:
+        color_enc = alt.value("#1f77b4")
+
+    # Build scatter chart
+    base = alt.Chart(d).mark_circle(opacity=0.8).encode(
+        x=alt.X(x, title=x.replace("_", " ")),
+        y=alt.Y(y, title=y.replace("_", " ")),
+        size=alt.Size(size_col, title=size_col.replace("_", " ")) if size_col else alt.value(60),
+        color=color_enc,
+        tooltip=tooltip,
+    ).properties(title=title, height=420)
+
+    
+    # Enable interactive legend 
+    if legend_select and color_col:
+        sel = alt.selection_point(fields=[color_col], bind="legend")
+        base = base.add_params(sel).encode(
+            opacity=alt.condition(sel, alt.value(1), alt.value(0.15))
+        )
+
+    st.altair_chart(base.interactive(), use_container_width=True)
+
+
+
+
+# MAPS — PyDeck
+
+def map_bubbles(
+    df: pd.DataFrame,
+    lat_col: str = "latitude",
+    lon_col: str = "longitude",
+    size_col: str = "passagers_total",
+    tooltip_cols: Optional[List[str]] = None,   
+    title: str = "Traffic by Airport (bubble size = passengers)",
+    center: tuple = (46.5, 2.5),                # France center
+    zoom: float = 4.5,                           
+    initial_view_state: Optional[Dict] = None,
+    radius_scale: float = 5.0
+):
+    """Bubble map using PyDeck. df must have latitude/longitude and a numeric size column."""
+    # Basic guard
+    needed = {lat_col, lon_col, size_col}
+    if df.empty or not needed.issubset(df.columns):
+        st.info("Map needs latitude, longitude, and the size column.")
+        return
+
+    # Clean data + bubble radius
+    d = df.dropna(subset=[lat_col, lon_col]).copy()
+    if d.empty:
+        st.info("No points with valid coordinates to display.")
+        return
+
+    d["__radius"] = np.sqrt(np.clip(pd.to_numeric(d[size_col], errors="coerce").fillna(0), 0, None)) * radius_scale
+
+    if tooltip_cols and len(tooltip_cols) >= 2:
+        name_field = tooltip_cols[0]
+        value_field = tooltip_cols[1]
+        # single braces -> pydeck will substitute values
+        tooltip_html = f"<b>{{{name_field}}}</b><br/>Passengers: {{{value_field}}}"
+    elif tooltip_cols and len(tooltip_cols) == 1:
+        only = tooltip_cols[0]
+        tooltip_html = f"<b>{{{only}}}</b><br/>{size_col}: {{{size_col}}}"
+    else:
+        fallback_name = "nom_aeroport" if "nom_aeroport" in d.columns else None
+        if fallback_name:
+            tooltip_html = f"<b>{{{fallback_name}}}</b><br/>{size_col}: {{{size_col}}}"
+        else:
+            tooltip_html = f"<b>{{{lat_col}}}, {{{lon_col}}}</b><br/>{size_col}: {{{size_col}}}"
+
+    tooltip = {
+        "html": tooltip_html,
+        "style": {"backgroundColor": "rgba(0,0,0,0.75)", "color": "white", "fontSize": "12px"}
+    }
+
+
+    # View state: center on France by default 
+    view_state = pdk.ViewState(
+        latitude=center[0],
+        longitude=center[1],
+        zoom=zoom,
+        pitch=0,
+        bearing=0
+    )
+    
+    if initial_view_state:
+        view_state = pdk.ViewState(**{**view_state.__dict__, **initial_view_state})
+
+    
+    layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=d,
+        get_position=[lon_col, lat_col],
+        get_radius="__radius",
+        pickable=True,
+        radius_min_pixels=2,
+        radius_max_pixels=80,
+        get_fill_color=[37, 99, 235, 160],  
+        auto_highlight=True,
+    )
+
+    deck = pdk.Deck(
+        layers=[layer],
+        initial_view_state=view_state,
+        tooltip=tooltip,
+    )
+
+    if title:
+        st.markdown(f"### {title}")
+    st.pydeck_chart(deck, use_container_width=True)
+
+
+# DATA QUALITY
+
+def missingness_bar(df: pd.DataFrame, title: str = "Missing values by column"):
+    if df.empty:
+        st.info("No data.")
+        return
+    miss = df.isna().sum()
+    miss = miss[miss > 0].sort_values(ascending=False).rename("missing").to_frame().reset_index().rename(columns={"index": "column"})
+    if miss.empty:
+        st.success("No missing values detected.")
+        return
+    ch = alt.Chart(miss).mark_bar().encode(
+        x=alt.X("missing:Q", title="Missing cells"),
+        y=alt.Y("column:N", sort="-x", title=""),
+        tooltip=["column", "missing"]
+    ).properties(title=title, height=max(240, 20 * len(miss)))
+    st.altair_chart(ch, use_container_width=True)
+
+
+# WHAT-IF / PROJECTION
+
+def overlay_projection(df, date_col, value_col, pct_change=10, title="Projection", subtitle=None):
+    import altair as alt
+    import pandas as pd
+
+    if df.empty or date_col not in df.columns or value_col not in df.columns:
+        return
+
+    d = df[[date_col, value_col]].dropna()
+    d = d.sort_values(date_col)
+
+    # Simple linear projection from last point
+    if d.empty:
+        return
+    last_date = pd.to_datetime(d[date_col].max())
+    last_val = float(d[value_col].iloc[-1])
+
+    proj_dates = pd.date_range(last_date, periods=13, freq="MS")  
+    growth = 1 + (pct_change / 100.0)
+    proj_vals = [last_val * (growth ** i) for i in range(len(proj_dates))]
+    proj = pd.DataFrame({date_col: proj_dates, value_col: proj_vals})
+    proj[value_col] = proj[value_col].astype(float)
+
+    base = alt.Chart(d).mark_line().encode(
+        x=alt.X(date_col, title="Date"),
+        y=alt.Y(value_col, title=value_col.replace("_", " ").title()),
+        color=alt.value("#1f77b4"),
+        tooltip=[date_col, value_col]
+    )
+
+    future = alt.Chart(proj).mark_line(strokeDash=[4, 3]).encode(
+        x=date_col, y=value_col, color=alt.value("#d62728"),
+        tooltip=[date_col, value_col]
+    )
+
+    
+    title_params = alt.TitleParams(title or "", anchor="start")
+    if subtitle:  # only set when it's a non-empty string
+        title_params.subtitle = subtitle
+
+    chart = (base + future).properties(
+        title=title_params,
+        height=360
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+
+
+# PLOTLY (optional) — quick alternatives
+
+def plotly_line(df: pd.DataFrame, x: str, y: str, color: Optional[str] = None, title: str = ""):
+    if px is None:
+        st.info("Plotly is not installed.")
+        return
+    fig = px.line(df, x=x, y=y, color=color, title=title)
+    st.plotly_chart(fig, use_container_width=True)
+
+def plotly_bar(df: pd.DataFrame, x: str, y: str, color: Optional[str] = None, title: str = ""):
+    if px is None:
+        st.info("Plotly is not installed.")
+        return
+    fig = px.bar(df, x=x, y=y, color=color, title=title)
     st.plotly_chart(fig, use_container_width=True)

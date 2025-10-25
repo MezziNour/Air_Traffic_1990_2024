@@ -1,115 +1,118 @@
 import streamlit as st
 import pandas as pd
-from utils.viz import line_chart, bar_chart, map_chart, seasonality_heatmap
 
-def app(tables, raw):
-    # Page header
-    st.header("Overview of Air Traffic Trends in France")
+from utils.io import load_apt_processed, load_cie_processed, load_lsn_processed
+from utils.prep import prep_apt, prep_cie, prep_lsn, agg_apt_timeseries
+from utils.metrics import kpis_apt, kpis_cie, kpis_lsn
+from utils.viz import line_trend, missingness_bar
 
-    # Intro
-    st.markdown("""
-    This part gives a **general view of how air traffic has evolved** in France between 1990 and 2024.  
-    You can explore **passenger and freight totals**, find out **which airports dominate**,  
-    and spot **long-term changes** in the data.
-    """)
+COVID_BANDS = [("2019-12-01", "2021-05-01", "COVID-19")]
 
-    # Sidebar filters 
-    st.sidebar.subheader("Overview Filters")
-    zones = raw['zone'].unique().tolist()
-    selected_zones = st.sidebar.multiselect("Select Zone(s)", zones, default=zones)
+@st.cache_data(show_spinner=False)
+def _load_all():
+    """Load preprocessed datasets (clean and fast)."""
+    apt = prep_apt(load_apt_processed())
+    cie = prep_cie(load_cie_processed())
+    lsn = prep_lsn(load_lsn_processed())
+    return apt, cie, lsn
 
-    # Year range slider 
-    years = sorted(raw['annee'].dropna().astype(int).unique())
-    start_year, end_year = st.sidebar.select_slider(
-        "Select Year Range",
-        options=years,
-        value=(years[0], years[-1])
-    )
+def render(start_date=None, end_date=None):
+    st.title("Overview")
+    st.caption("A fast view: KPIs, main trend, and quick facts. Filters from the sidebar are applied.")
 
-    # Filter data based on user input 
-    df_filtered = raw[
-        (raw['zone'].isin(selected_zones)) &
-        (raw['annee'] >= start_year) &
-        (raw['annee'] <= end_year)
-    ]
+    # Load
+    apt, cie, lsn = _load_all()
 
-    # KPIs 
-    total_passengers = df_filtered[['passagers_depart', 'passagers_arrivee', 'passagers_transit']].sum().sum()
-    total_freight = df_filtered[['fret_depart', 'fret_arrivee']].sum().sum()
-    total_movements = df_filtered[['mouvements_passagers', 'mouvements_cargo']].sum().sum()
+    # Apply global date filter (from app.py)
+    if start_date is not None and end_date is not None:
+        if not apt.empty and "date" in apt.columns:
+            apt = apt[(apt["date"] >= start_date) & (apt["date"] <= end_date)]
+        if not cie.empty and "date" in cie.columns:
+            cie = cie[(cie["date"] >= start_date) & (cie["date"] <= end_date)]
+        if not lsn.empty and "date" in lsn.columns:
+            lsn = lsn[(lsn["date"] >= start_date) & (lsn["date"] <= end_date)]
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total Passengers", f"{int(total_passengers):,}")
-    c2.metric("Total Freight (kg)", f"{int(total_freight):,}")
-    c3.metric("Total Movements", f"{int(total_movements):,}")
+    
+    # KPIs
+    
+    col1, col2, col3 = st.columns([0.5, 1.5, 0.3])
 
-    st.markdown("---")
+    if not apt.empty:
+        k_apt = kpis_apt(apt)
+        col1.metric(
+            "Total passengers",
+            f"{k_apt.get('total_passengers', 0):,.0f}".replace(",", " ")
+        )
 
-    # Passenger traffic over time 
-    st.subheader("Passenger Traffic Over Time")
-    timeseries_table = tables['timeseries']
-    timeseries_table_filtered = timeseries_table[
-        (timeseries_table['zone'].isin(selected_zones)) &
-        (timeseries_table['date'].dt.year >= start_year) &
-        (timeseries_table['date'].dt.year <= end_year)
-    ]
-    line_chart(timeseries_table_filtered)
+        with col2:
+            st.markdown(
+                f"""
+                <div style='text-align:center'>
+                    <small style='color:#0a2a66;'>Top airport</small><br>
+                    <span style='font-size:1.8rem; font-weight:700; color:#001F54; white-space:nowrap;'>
+                        {k_apt.get("top_airport_name") or k_apt.get("top_airport_code") or "—"}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-    # Analysis text
-    st.markdown("""
-    #### **Analysis:**  
-    Passenger traffic shows a **stable growth** from 1990 to 2019, mainly in **Metropolitan France (MT)**.  
-    The graph highlights **strong seasonal peaks** each year, usually during summer.  
-    A clear **drop in 2020** reflects the **COVID-19 crisis**, followed by a gradual recovery.  
-    **Overseas territories (OM)** display much lower traffic levels.
-    """)
+        rec = k_apt.get("recovery_vs_2019_pct")
+        col3.metric("Recovery vs 2019", f"{rec:.1f}%" if rec == rec else "Not yet")
 
-    st.markdown("---")
+    
+    # Main time series
+    
+    if not apt.empty:
+        ts_apt_M = agg_apt_timeseries(apt, freq="M")
+        if not ts_apt_M.empty:
+            line_trend(
+                ts_apt_M,
+                date_col="date",
+                value_cols=["passagers_total"],
+                title="Passengers over time",
+                subtitle="Monthly totals. The red band marks the COVID-19 period.",
+                y_title="Passengers",
+                bands=COVID_BANDS
+            )
 
-    # --- Top airports by traffic ---
-    st.subheader("Top Airports by Passenger Traffic")
-    by_airport_table = tables['by_airport'].copy()
-    by_airport_table_filtered = by_airport_table[
-        by_airport_table['zone'].isin(selected_zones)
-    ]
-    top_airports = by_airport_table_filtered.sort_values('passengers_total', ascending=False).head(10)
-    bar_chart(top_airports)
+    
+    # Quick facts
+    
+    if not cie.empty:
+        k_cie = kpis_cie(cie)
+        with st.expander("Airlines — quick facts", expanded=False):
+            st.write(
+                f"Total airline passengers: **{k_cie.get('total_airline_passengers', 0):,.0f}**"
+                .replace(",", " ")
+            )
+            st.write("Top airline:", k_cie.get("top_airline_name") or k_cie.get("top_airline_code") or "—")
 
-    # Analysis text
-    st.markdown("""
-    #### **Analysis:**  
-    **Paris–Charles de Gaulle** and **Paris–Orly** clearly dominate air traffic in France, together handling most of the country’s passengers.  
-    Airports like **Nice**, **Lyon**, **Marseille**, and **Toulouse** form the **secondary network**, reflecting regional tourism and business travel.  
-    """)
+    if not lsn.empty:
+        k_lsn = kpis_lsn(lsn)
+        with st.expander("Routes — quick facts", expanded=False):
+            st.write(
+                f"Total route passengers: **{k_lsn.get('total_route_passengers', 0):,.0f}**"
+                .replace(",", " ")
+            )
+            st.write("Top route:", k_lsn.get("top_route") or "—")
 
-    st.markdown("---")
+    
+    # Data quality preview
+    
+    st.markdown("### Data quality (quick view)")
+    if not apt.empty:
+        st.caption("Missing values in APT (airports)")
+        missingness_bar(apt, title="APT missing values")
 
-    # --- Map of air traffic ---
-    st.subheader("Geographic Distribution of Air Traffic")
-    map_table = tables['geo'].copy()
-    map_table_filtered = map_table[
-        map_table['zone'].isin(selected_zones)
-    ]
-    map_chart(map_table_filtered)
+    if not cie.empty:
+        st.caption("Missing values in CIE (airlines)")
+        missingness_bar(cie, title="CIE missing values")
 
-    # Analysis text
-    st.markdown("""
-    #### **Analysis:**  
-    The map shows that **Île-de-France** is the main hub of French air traffic, with **Paris airports** dominating the national network.  
-    Major regional airports **Nice, Lyon, Marseille, Toulouse, and Bordeaux** act as key connectors across the country.  
-    **Overseas territories** play a smaller role.
-    """)
+    if not lsn.empty:
+        st.caption("Missing values in LSN (routes)")
+        missingness_bar(lsn, title="LSN missing values")
 
-    st.markdown("---")
 
-    # --- Seasonal patterns heatmap ---
-    st.subheader("Seasonal Patterns in Air Traffic")
-    seasonality_heatmap(df_filtered)
-
-    # Analysis text
-    st.markdown("""
-    #### **Analysis:**  
-    The heatmap reveals **repeating seasonal peaks** each year, especially in **July and August**, driven by summer holidays.  
-    Noticeable drops appear around **2009** (financial crisis) and **2020** (COVID-19).  
-    Over time, both the **intensity** and **consistency** of these peaks have grown, showing how demand for air travel has increased.
-    """)
+if __name__ == "__main__":
+    render()

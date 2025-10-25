@@ -1,42 +1,149 @@
+# sections/conclusions.py
+
 import streamlit as st
+import pandas as pd
 
-def app():
-    st.header("Conclusions & Key Takeaways")
+from utils.io import load_apt_processed, load_cie_processed, load_lsn_processed
+from utils.prep import prep_apt, prep_cie, prep_lsn
+from utils.metrics import kpis_apt, kpis_cie, kpis_lsn
 
-    st.markdown("""
-    After looking at **air traffic in France from 1990 to 2024**, we can see how travel, freight, and flight activity have changed over time.
 
-    ---
+@st.cache_data(show_spinner=False)
+def _load_all():
+    """Load & prep all three processed datasets."""
+    apt = prep_apt(load_apt_processed())
+    cie = prep_cie(load_cie_processed())
+    lsn = prep_lsn(load_lsn_processed())
+    return apt, cie, lsn
 
-    ### What We Learned
-    - From **1990 to 2019**, air traffic in France kept **growing consistently**, with clear **summer peaks** every year.  
-      In **2020**, traffic fell sharply because of **COVID-19**, then started to recover slowly.
-    - **Metropolitan France (MT)** handles **most of the traffic**, while **Overseas territories (OM)** show **smaller but stable** numbers.  
-    - **Paris–Charles de Gaulle (CDG)** and **Paris–Orly (ORY)** remain the main hubs.  
-      Airports like **Nice, Lyon, Marseille, Toulouse, and Bordeaux** also play an important role regionally.
-    - **Freight traffic** is mostly at **CDG**, making it France’s main cargo hub.  
-      It was less affected by crises and recovered faster than passenger traffic.
-    - **Flight movements** clearly dropped during COVID-19 but show a strong rebound after 2021.
-    - Global events such as **9/11 (2001)**, the **2008 financial crisis**, and the **2020 pandemic** left visible marks in the data.
 
-    ---
+def _apply_range(df: pd.DataFrame, start_date, end_date) -> pd.DataFrame:
+    if df.empty or "date" not in df.columns or start_date is None or end_date is None:
+        return df
+    m = (df["date"] >= pd.to_datetime(start_date)) & (df["date"] <= pd.to_datetime(end_date))
+    return df.loc[m].copy()
 
-    ### Why It Matters
-    - Big events can **disrupt the air network fast**, so **resilience and crisis planning** are essential.  
-    - Heavy traffic around **Paris airports** shows a need to **spread activity** more evenly across regions.  
-    - **Regional airports** help connect cities and support tourism, so keeping them active is important for local economies.  
-    - With most **freight centered in Ile-de-France**, improving **logistics links** to other regions could make air transport more balanced.  
-    - Environmental issues are now a key part of planning — reducing **CO₂ emissions and noise** should go hand in hand with growth.
 
-    ---
+def _cagr_yearly(df: pd.DataFrame, value_col: str = "passagers_total") -> float:
+    """
+    Rough CAGR on yearly totals (handles gaps).
+    Returns a percent (e.g. 3.1 for 3.1%).
+    """
+    if df.empty or "date" not in df.columns or value_col not in df.columns:
+        return float("nan")
+    y = (
+        df.dropna(subset=["date"])
+          .assign(year=lambda x: x["date"].dt.year)
+          .groupby("year", dropna=False)[value_col]
+          .sum()
+          .sort_index()
+    )
+    if len(y) < 2 or y.iloc[0] <= 0:
+        return float("nan")
+    years = y.index[-1] - y.index[0]
+    if years <= 0:
+        return float("nan")
+    cagr = (y.iloc[-1] / y.iloc[0]) ** (1 / years) - 1
+    return round(cagr * 100, 2)
 
-    ### What Comes Next  
-    - **Predict the future**: we can try simple forecasting models to estimate how traffic might evolve after crises.  
-    - **Add new data**: we can include information on **emissions, fuel use, and train alternatives** for short routes.  
-    - **Improve the app**: we can offer options to **download filtered data**, **compare airports**, and show **data quality checks**.
 
-    ---
+def render(start_date=None, end_date=None):
+    st.title("Conclusions & Next Steps")
+    st.caption("A short wrap-up of what the data shows — and what to do with it.")
 
-    Thank you for exploring this dashboard!  
-    All data sources and methods are explained in the **[project repository](https://github.com/MezziNour/Air_Traffic_1990_2024)**.
-    """)
+    # Load & filter
+    apt, cie, lsn = _load_all()
+    apt = _apply_range(apt, start_date, end_date)
+    cie = _apply_range(cie, start_date, end_date)
+    lsn = _apply_range(lsn, start_date, end_date)
+
+    #  Key numbers (from your visuals) 
+    st.header("Key takeaways")
+
+    c1, c2, c3 = st.columns([0.5, 1, 0.3])
+    if not apt.empty:
+        k_apt = kpis_apt(apt)
+        c1.metric("Total passengers (APT)", f"{k_apt.get('total_passengers', 0):,.0f}".replace(",", " "))
+        c2.metric("Top airport", k_apt.get("top_airport_name") or k_apt.get("top_airport_code") or "—")
+        rec = k_apt.get("recovery_vs_2019_pct")
+        c3.metric("Recovery vs 2019", f"{rec:.1f}%" if rec == rec else "Not yet")
+
+    if not cie.empty:
+        k_cie = kpis_cie(cie)
+        st.caption(
+            f"**Airlines:** {k_cie.get('total_airline_passengers', 0):,.0f}".replace(",", " ")
+            + f" passengers • Leader: {k_cie.get('top_airline_name') or k_cie.get('top_airline_code') or '—'}"
+        )
+
+    if not lsn.empty:
+        k_lsn = kpis_lsn(lsn)
+        st.caption(
+            f"**Routes:** {k_lsn.get('total_route_passengers', 0):,.0f}".replace(",", " ")
+            + f" passengers • Busiest route: {k_lsn.get('top_route') or '—'}"
+        )
+
+    # CAGR from airports series (1990→latest) inside the selected range
+    cagr = _cagr_yearly(apt, "passagers_total") if not apt.empty else float("nan")
+    if cagr == cagr:  # not NaN
+        st.caption(f"Approx. long-run growth: **{cagr}% CAGR** on yearly passenger totals.")
+
+    st.markdown("---")
+
+    #  Plain-language insights 
+    st.header("What the charts tell us")
+
+    st.markdown(
+        """
+- **Strong seasonality :** peaks happen every summer, Winters are lower.  
+- **COVID-19 was a deep shock, then a fast rebound : ** traffic fell hard in 2020 and climbed back near 2019 levels soon after.  
+- **France is hub-centric : ** Paris–Charles de Gaulle and Paris–Orly carry a very large share of flows; Nice, Lyon, Marseille follow.  
+- **Air France leads, low-cost carriers matter : ** Air France stays number one, while EasyJet brands and others hold a large slice of demand.  
+- **Short/medium-haul dominates : ** many passengers fly within France or to nearby countries; long-haul is important but smaller.  
+- **Freight is stable : ** cargo dipped during COVID but overall shows smaller swings than passengers.
+        """
+    )
+
+    st.markdown("---")
+
+    #  Why it matters / implications 
+    st.header("What this means")
+
+    st.markdown(
+        """
+- **Resilience:** the market absorbs shocks and returns to trend. Planning should allow for quick ramp-downs and ramp-ups.  
+- **Concentration risk:** Paris hubs are efficient but also single points of failure. Regional capacity and rail links help reduce risk.  
+- **Competitive pressure:** legacy + low-cost mix keeps prices and load factors tight; efficiency and punctuality remain key levers.  
+- **Sustainability pressure:** most flights are short-haul, where CO₂ per trip is more visible; greener operations and modal shift will be in focus.
+        """
+    )
+
+    st.markdown("---")
+
+    #  Data quality (from your checks) 
+    st.header("Data quality ")
+    st.success("All expected columns found. No duplicates, no missing values, no IQR outliers detected in APT / CIE / LSN.")
+
+    st.markdown("---")
+
+    #  Next steps 
+    st.header("Next steps")
+
+    st.markdown(
+        """
+1) **Add emissions** — estimate CO₂ per route/aircraft to compare airports and airlines on climate impact.  
+2) **Blend modes** — combine air with **TGV/rail** to study real door-to-door travel and substitution on short routes.  
+3) **Forecast demand** — simple models (seasonal ARIMA/Prophet) at airport, airline, and route level for 12–24-month outlooks.  
+4) **Stress tests** — simulate new shocks (oil price, ATC strike, extreme weather) to see which hubs/routes are most exposed.  
+5) **Automate refresh** — monthly ingestion from DGAC with validation, then publish an **open dashboard** for cities and regions.  
+        """
+    )
+
+    st.markdown("---")
+    st.success("**In short:** French air traffic grew over the long run, fell sharply in 2020, and has almost fully recovered. "
+               "Paris anchors the network, Air France leads, and low-cost carriers play a big role. "
+               "The next chapter would be about climate performance.")
+    
+
+
+if __name__ == "__main__":
+    render()
