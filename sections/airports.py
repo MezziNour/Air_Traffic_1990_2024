@@ -123,7 +123,7 @@ def render(start_date=None, end_date=None):
             size_col="passagers_total",
             color_col="zone" if "zone" in apt.columns else None,
             title="Passengers vs Freight per Airport",
-            tooltip_cols=["nom_aeroport", "passagers_total", "fret_total"],
+            tooltip_cols=["nom_aeroport", "passagers_total", "fret_total", "zone"],
             color_domain=["MT", "OM"],
             color_range=["#3B82F6", "#F59E0B"]
         )

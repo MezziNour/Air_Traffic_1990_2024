@@ -282,75 +282,84 @@ def boxplot_distribution_px(
     st.plotly_chart(fig, use_container_width=True)
 
 
-
-
 def scatter_with_size_color(
     df: pd.DataFrame,
     x: str,
     y: str,
-    size_col: Optional[str] = None,
-    color_col: Optional[str] = None,
+    size_col: str | None = None,
+    color_col: str | None = None,
     title: str = "",
-    tooltip_cols: Optional[List[str]] = None,
-    legend_select: bool = True,
-    color_domain: Optional[List[str]] = None,   
-    color_range: Optional[List[str]] = None,    
-    top_n: int = 15                              
+    tooltip_cols: list[str] | None = None,
+    legend_select: bool = True,             
+    color_domain: list[str] | None = None,  
+    color_range: list[str] | None = None,   
+    top_n: int | None = None,               
 ):
-    """Scatter plot showing top N categories by size or y-value."""
-    if df.empty or x not in df.columns or y not in df.columns:
+    """Bubble scatter using Plotly (JSON-safe on Streamlit Cloud)."""
+    need = {x, y}
+    if df.empty or not need.issubset(df.columns):
+        st.info("No data to plot.")
         return
 
     d = df.copy()
 
-    # Select top N airlines by total passengers
-    
-    if color_col:
-        metric = size_col or y
-        totals = (
-            d.groupby(color_col, dropna=False)[metric]
-             .sum()
-             .sort_values(ascending=False)
-        )
-        top_list = totals.head(top_n).index.tolist()
-        d = d[d[color_col].isin(top_list)]
+    # --- Coerce dtypes to JSON-safe ---
+    # numeric axes
+    d[x] = pd.to_numeric(d[x], errors="coerce")
+    d[y] = pd.to_numeric(d[y], errors="coerce")
+    if size_col and size_col in d.columns:
+        d[size_col] = pd.to_numeric(d[size_col], errors="coerce")
+    # color/category column as string
+    if color_col and color_col in d.columns:
+        d[color_col] = d[color_col].astype(str)
+    # tooltips made safe
+    if tooltip_cols:
+        for c in tooltip_cols:
+            if c in d.columns and not np.issubdtype(d[c].dtype, np.number):
+                # stringify everything non-numeric to avoid complex objects (e.g., tuples)
+                d[c] = d[c].astype(str)
 
+    # Optional: restrict to top N (by size_col if provided, else by x)
+    if top_n and top_n > 0:
+        sort_key = size_col if size_col and size_col in d.columns else x
+        d = d.sort_values(sort_key, ascending=False).head(top_n)
 
-    # Tooltip and color setup
-    tooltip = tooltip_cols or [c for c in [color_col, x, y, size_col] if c]
+    # Replace NaN with None (JSON-friendly) and drop rows with missing axes
+    d = d.replace({np.nan: None})
+    d = d.dropna(subset=[x, y])
 
-    if color_col:
-        color_enc = alt.Color(
-            f"{color_col}:N",
-            legend=alt.Legend(title=color_col),
-            scale=alt.Scale(
-                domain=color_domain,
-                range=color_range,
-                clamp=True
-            ) if (color_domain and color_range) else alt.Undefined,
-            sort=color_domain if color_domain else alt.Undefined,
-        )
-    else:
-        color_enc = alt.value("#1f77b4")
+    # Fixed colors and stable legend order
+    color_map = None
+    category_orders = None
+    if color_col and color_domain and color_range and len(color_domain) == len(color_range):
+        color_map = {k: v for k, v in zip(color_domain, color_range)}
+        category_orders = {color_col: color_domain}
 
-    # Build scatter chart
-    base = alt.Chart(d).mark_circle(opacity=0.8).encode(
-        x=alt.X(x, title=x.replace("_", " ")),
-        y=alt.Y(y, title=y.replace("_", " ")),
-        size=alt.Size(size_col, title=size_col.replace("_", " ")) if size_col else alt.value(60),
-        color=color_enc,
-        tooltip=tooltip,
-    ).properties(title=title, height=420)
+    fig = px.scatter(
+        d,
+        x=x,
+        y=y,
+        size=size_col if size_col in d.columns else None,
+        color=color_col if color_col in d.columns else None,
+        hover_data=tooltip_cols if tooltip_cols else None,
+        color_discrete_map=color_map,
+        category_orders=category_orders,
+        title=title or None,
+    )
 
-    
-    # Enable interactive legend 
-    if legend_select and color_col:
-        sel = alt.selection_point(fields=[color_col], bind="legend")
-        base = base.add_params(sel).encode(
-            opacity=alt.condition(sel, alt.value(1), alt.value(0.15))
-        )
+    # Improve readability
+    fig.update_traces(marker=dict(opacity=0.75, line=dict(width=0)))
+    fig.update_layout(
+        height=420,
+        xaxis_title=x.replace("_", " "),
+        yaxis_title=y.replace("_", " "),
+        margin=dict(l=10, r=10, t=50, b=10),
+        legend_title="",
+    )
 
-    st.altair_chart(base.interactive(), use_container_width=True)
+    # Plotly legends already support click-to-hide; nothing else needed.
+    st.plotly_chart(fig, use_container_width=True)
+
 
 
 
