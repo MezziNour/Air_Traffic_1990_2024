@@ -94,12 +94,12 @@ def render(start_date=None, end_date=None):
 
     st.markdown(
         """
-- **Strong seasonality :** peaks happen every summer, Winters are lower.  
-- **COVID-19 was a deep shock, then a fast rebound : ** traffic fell hard in 2020 and climbed back near 2019 levels soon after.  
-- **France is hub-centric : ** Paris–Charles de Gaulle and Paris–Orly carry a very large share of flows; Nice, Lyon, Marseille follow.  
-- **Air France leads, low-cost carriers matter : ** Air France stays number one, while EasyJet brands and others hold a large slice of demand.  
-- **Short/medium-haul dominates : ** many passengers fly within France or to nearby countries; long-haul is important but smaller.  
-- **Freight is stable : ** cargo dipped during COVID but overall shows smaller swings than passengers.
+        - **Strong seasonality :** peaks happen every summer, Winters are lower.  
+        - **COVID-19 was a deep shock, then a fast rebound : ** traffic fell hard in 2020 and climbed back near 2019 levels soon after.  
+        - **France is hub-centric : ** Paris–Charles de Gaulle and Paris–Orly carry a very large share of flows; Nice, Lyon, Marseille follow.  
+        - **Air France leads, low-cost carriers matter : ** Air France stays number one, while EasyJet brands and others hold a large slice of demand.  
+        - **Short/medium-haul dominates : ** many passengers fly within France or to nearby countries; long-haul is important but smaller.  
+        - **Freight is stable : ** cargo dipped during COVID but overall shows smaller swings than passengers.
         """
     )
 
@@ -110,10 +110,10 @@ def render(start_date=None, end_date=None):
 
     st.markdown(
         """
-- **Resilience:** the market absorbs shocks and returns to trend. Planning should allow for quick ramp-downs and ramp-ups.  
-- **Concentration risk:** Paris hubs are efficient but also single points of failure. Regional capacity and rail links help reduce risk.  
-- **Competitive pressure:** legacy + low-cost mix keeps prices and load factors tight; efficiency and punctuality remain key levers.  
-- **Sustainability pressure:** most flights are short-haul, where CO₂ per trip is more visible; greener operations and modal shift will be in focus.
+          - **Resilience:** the market absorbs shocks and returns to trend. Planning should allow for quick ramp-downs and ramp-ups.  
+          - **Concentration risk:** Paris hubs are efficient but also single points of failure. Regional capacity and rail links help reduce risk.  
+          - **Competitive pressure:** legacy + low-cost mix keeps prices and load factors tight; efficiency and punctuality remain key levers.  
+          - **Sustainability pressure:** most flights are short-haul, where CO₂ per trip is more visible; greener operations and modal shift will be in focus.
         """
     )
 
@@ -130,11 +130,11 @@ def render(start_date=None, end_date=None):
 
     st.markdown(
         """
-1) **Add emissions** — estimate CO₂ per route/aircraft to compare airports and airlines on climate impact.  
-2) **Blend modes** — combine air with **TGV/rail** to study real door-to-door travel and substitution on short routes.  
-3) **Forecast demand** — simple models (seasonal ARIMA/Prophet) at airport, airline, and route level for 12–24-month outlooks.  
-4) **Stress tests** — simulate new shocks (oil price, ATC strike, extreme weather) to see which hubs/routes are most exposed.  
-5) **Automate refresh** — monthly ingestion from DGAC with validation, then publish an **open dashboard** for cities and regions.  
+        1) **Add emissions** — estimate CO₂ per route/aircraft to compare airports and airlines on climate impact.  
+        2) **Blend modes** — combine air with **TGV/rail** to study real door-to-door travel and substitution on short routes.  
+        3) **Forecast demand** — simple models (seasonal ARIMA/Prophet) at airport, airline, and route level for 12–24-month outlooks.  
+        4) **Stress tests** — simulate new shocks (oil price, ATC strike, extreme weather) to see which hubs/routes are most exposed.  
+        5) **Automate refresh** — monthly ingestion from DGAC with validation, then publish an **open dashboard** for cities and regions.  
         """
     )
 

@@ -214,6 +214,8 @@ def bar_top_n(
         chart = bars + text
     else:
         chart = bars
+        
+    st.write("DEBUG dtypes:", d.dtypes)
 
     st.altair_chart(chart, use_container_width=True)
 
