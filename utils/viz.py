@@ -184,9 +184,12 @@ def bar_top_n(
         st.info("No data to rank.")
         return
 
+    # 🔴 Force JSON-safe types BEFORE groupby
     tmp = df[[category_col, value_col]].copy()
-    tmp[category_col] = tmp[category_col].astype(str)
-    if np.issubdtype(tmp[value_col].dtype, np.integer):
+    tmp[category_col] = tmp[category_col].astype(str)              # tuples/objects → str
+    if "datetime" in str(tmp[value_col].dtype):
+        tmp[value_col] = tmp[value_col].astype("float64")          # never send datetimes to Q axis
+    elif np.issubdtype(tmp[value_col].dtype, np.integer):
         tmp[value_col] = tmp[value_col].astype("float64")
 
     d = (
@@ -196,28 +199,21 @@ def bar_top_n(
            .sort_values(value_col, ascending=not sort_desc)
            .head(n)
            .reset_index(drop=True)
-           .replace({np.nan: None})
     )
 
-    
-    records = [
-        {
-            category_col: str(row[category_col]) if row[category_col] is not None else "",
-            value_col: float(row[value_col]) if row[value_col] is not None else None,
-        }
-        for _, row in d.iterrows()
-    ]
+   
+    for c in d.columns:
+        if d[c].dtype == "object":
+            d[c] = d[c].astype(str)
+        elif np.issubdtype(d[c].dtype, np.floating):
+            d[c] = d[c].astype(float)
+    d = d.replace({np.nan: None})
 
-    bars = (
-        alt.Chart(alt.Data(values=records))  
-        .mark_bar()
-        .encode(
-            x=alt.X(f"{value_col}:Q", title=value_col),
-            y=alt.Y(f"{category_col}:N", sort="-x", title=""),
-            tooltip=[category_col, alt.Tooltip(f"{value_col}:Q", title=value_col, format=",.0f")],
-        )
-        .properties(title=title, height=max(240, 20 * len(records)))
-    )
+    bars = alt.Chart(d).mark_bar().encode(
+        x=alt.X(f"{value_col}:Q", title=value_col),
+        y=alt.Y(f"{category_col}:N", sort="-x", title=""),
+        tooltip=[category_col, alt.Tooltip(f"{value_col}:Q", title=value_col, format=",.0f")],
+    ).properties(title=title, height=max(240, 20 * len(d)))
 
     if annotate:
         text = bars.mark_text(align="left", dx=3).encode(
@@ -228,6 +224,7 @@ def bar_top_n(
         chart = bars
 
     st.altair_chart(chart, use_container_width=True)
+
 
 
 
