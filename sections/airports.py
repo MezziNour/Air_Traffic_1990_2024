@@ -111,6 +111,7 @@ def render(start_date=None, end_date=None):
     # Airport activity patterns
     
     st.header("Airport Size vs Freight")
+    st.caption("MT = Metropolitan; OM = Overseas")
     zones = sorted(apt["zone"].dropna().unique().tolist())
     chosen = st.multiselect("Zones", zones, default=zones)
     apt = apt[apt["zone"].isin(chosen)]
