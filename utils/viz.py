@@ -96,77 +96,80 @@ def stacked_area_share(
     value_col: str,
     title: str = "",
     normalize: bool = True,
-    top_n: int = 15,           
-    legend_columns: int = 4,
-    bottom_padding: int = 64,
+    top_n: int = 15,
 ):
-    """Stacked area to show composition over time (market shares) with Top-N carriers and 'Others'."""
-    needed = {date_col, category_col, value_col}
-    if df.empty or not needed.issubset(df.columns):
+    """
+    Stacked area (Plotly) with optional share normalization and top-N categories.
+    JSON-safe for Streamlit Cloud.
+    """
+    need = {date_col, category_col, value_col}
+    if df.empty or not need.issubset(df.columns):
         st.info("Not enough data for stacked area.")
         return
 
-    
-    d = df[[date_col, category_col, value_col]].copy()
-    d[date_col] = pd.to_datetime(d[date_col], errors="coerce")
-    d = d.dropna(subset=[date_col])
+    d = df[list(need)].copy()
 
-    
-    totals = (
-        d.groupby(category_col, dropna=False)[value_col]
-         .sum()
-         .sort_values(ascending=False)
-    )
-    top_list = totals.head(top_n).index.tolist()
+    # Coerce date to datetime (drop tz); category to str; value to float
+    d[date_col] = pd.to_datetime(d[date_col], errors="coerce").dt.tz_localize(None)
+    d[category_col] = d[category_col].astype(str)
+    d[value_col] = pd.to_numeric(d[value_col], errors="coerce")
 
-    
-    d[category_col] = np.where(d[category_col].isin(top_list), d[category_col], "Others")
-
-    
+    # Aggregate by date/category
     d = (
-        d.groupby([date_col, category_col], as_index=False, dropna=False)[value_col]
-         .sum()
+        d.groupby([date_col, category_col], dropna=False, as_index=False)[value_col]
+        .sum()
     )
 
-    
-    y_enc = alt.Y(
-        f"{value_col}:Q",
-        stack="normalize" if normalize else "zero",
-        title="Share" if normalize else value_col.replace("_", " ").title(),
-        axis=alt.Axis(format="~%") if normalize else alt.Undefined,
+    # Keep top-N categories by total value over the whole period
+    totals = d.groupby(category_col, as_index=False)[value_col].sum()
+    keep = (
+        totals.sort_values(value_col, ascending=False)
+        .head(top_n)[category_col]
+        .tolist()
+    )
+    d[category_col] = np.where(d[category_col].isin(keep), d[category_col], "Others")
+
+    # Re-aggregate after lumping Others
+    d = (
+        d.groupby([date_col, category_col], as_index=False)[value_col]
+        .sum()
+        .sort_values([date_col, category_col])
     )
 
-    # Chart
-    chart = (
-        alt.Chart(d)
-        .mark_area()
-        .encode(
-            x=alt.X(f"{date_col}:T", title="Date", axis=alt.Axis(titlePadding=12, labelPadding=6)),
-            y=y_enc,
-            color=alt.Color(
-                f"{category_col}:N",
-                legend=alt.Legend(
-                    title=None,
-                    orient="top",
-                    direction="horizontal",
-                    columns=legend_columns,
-                    labelLimit=1000,
-                    symbolLimit=0,
-                ),
-            ),
-            tooltip=[
-                alt.Tooltip(f"{date_col}:T", title="Date"),
-                alt.Tooltip(f"{category_col}:N", title="Carrier"),
-                alt.Tooltip(f"{value_col}:Q", title="Passengers", format=",.0f"),
-            ],
-        )
-        .properties(title=title, height=420, width="container")
-        .configure(padding={"left": 5, "right": 5, "top": 5, "bottom": bottom_padding})
-        .configure_axis(labelFontSize=12, titleFontSize=12)
-        .configure_legend(labelFontSize=12)
-    )
+    # Normalize per date to shares if requested
+    if normalize:
+        d["__total__"] = d.groupby(date_col)[value_col].transform("sum")
+        # guard against divide-by-zero
+        d["share"] = np.where(d["__total__"] > 0, d[value_col] / d["__total__"], 0.0)
+        y_col = "share"
+        y_title = "Share"
+        d.drop(columns=["__total__"], inplace=True)
+    else:
+        y_col = value_col
+        y_title = value_col.replace("_", " ")
 
-    st.altair_chart(chart, use_container_width=True)
+    # Replace NaN with None for safe JSON
+    d = d.replace({np.nan: None}).reset_index(drop=True)
+
+    fig = px.area(
+        d,
+        x=date_col,
+        y=y_col,
+        color=category_col,
+        title=title or None,
+    )
+    if normalize:
+        fig.update_yaxes(tickformat=".0%", range=[0, 1])
+
+    fig.update_layout(
+        height=420,
+        xaxis_title="Date",
+        yaxis_title=y_title,
+        legend_title="",
+        margin=dict(l=10, r=10, t=50, b=10),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
 
 
 
@@ -228,11 +231,6 @@ def bar_top_n(
 
     st.plotly_chart(fig, use_container_width=True)
 
-# utils/viz.py
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import streamlit as st
 
 def boxplot_distribution_px(
     df: pd.DataFrame,
@@ -241,7 +239,7 @@ def boxplot_distribution_px(
     title: str = "",
     show_points: bool = True,
 ):
-    """Distribution chart (box + optional points) using Plotly (JSON-safe on Streamlit Cloud)."""
+    """Distribution chart (box + optional points) using Plotly to avoid Arrow/Altair issues."""
     if df.empty or not {x_col, y_col}.issubset(df.columns):
         st.info("No data to plot.")
         return
@@ -283,50 +281,6 @@ def boxplot_distribution_px(
     )
     st.plotly_chart(fig, use_container_width=True)
 
-
-def boxplot_distribution(
-    df: pd.DataFrame,
-    x_col: str,          
-    y_col: str,          
-    title: str = "",
-    show_points: bool = True,
-):
-    """Distribution chart (box + optional points) using Plotly to avoid Arrow/Altair issues."""
-    if df.empty or not {x_col, y_col}.issubset(df.columns):
-        st.info("No data to plot.")
-        return
-
-    d = df[[x_col, y_col]].copy()
-    if "datetime" in str(d[x_col].dtype):
-        d[x_col] = pd.to_datetime(d[x_col], errors="coerce")
-  
-    if not np.issubdtype(d[x_col].dtype, np.number):
-        coerced = pd.to_numeric(d[x_col], errors="coerce")
-        if coerced.notna().any():
-            d[x_col] = coerced.astype("Int64").astype("float")  
-        else:
-            d[x_col] = d[x_col].astype(str)
-
-   
-    d[y_col] = pd.to_numeric(d[y_col], errors="coerce")
-    d = d.replace({np.nan: None}).reset_index(drop=True)
-
-    
-    fig = px.box(
-        d,
-        x=x_col,
-        y=y_col,
-        points="all" if show_points else False,
-        title=title or None,
-    )
-    fig.update_traces(marker=dict(size=4, opacity=0.35))
-    fig.update_layout(
-        height=420,
-        xaxis_title=x_col.replace("_", " "),
-        yaxis_title=y_col.replace("_", " "),
-        margin=dict(l=10, r=10, t=50, b=10),
-    )
-    st.plotly_chart(fig, use_container_width=True)
 
 
 
