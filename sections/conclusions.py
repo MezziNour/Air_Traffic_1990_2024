@@ -95,11 +95,11 @@ def render(start_date=None, end_date=None):
     st.markdown(
         """
         - **Strong seasonality :** peaks happen every summer, Winters are lower.  
-        - **COVID-19 was a deep shock, then a fast rebound : ** traffic fell hard in 2020 and climbed back near 2019 levels soon after.  
-        - **France is hub-centric : ** Paris–Charles de Gaulle and Paris–Orly carry a very large share of flows; Nice, Lyon, Marseille follow.  
-        - **Air France leads, low-cost carriers matter : ** Air France stays number one, while EasyJet brands and others hold a large slice of demand.  
-        - **Short/medium-haul dominates : ** many passengers fly within France or to nearby countries; long-haul is important but smaller.  
-        - **Freight is stable : ** cargo dipped during COVID but overall shows smaller swings than passengers.
+        - **COVID-19 was a deep shock, then a fast rebound :** traffic fell hard in 2020 and climbed back near 2019 levels soon after.  
+        - **France is hub-centric :** Paris–Charles de Gaulle and Paris–Orly carry a very large share of flows; Nice, Lyon, Marseille follow.  
+        - **Air France leads, low-cost carriers matter :** Air France stays number one, while EasyJet brands and others hold a large slice of demand.  
+        - **Short/medium-haul dominates :** many passengers fly within France or to nearby countries; long-haul is important but smaller.  
+        - **Freight is stable :** cargo dipped during COVID but overall shows smaller swings than passengers.
         """
     )
 
